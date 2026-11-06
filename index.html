@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Pedidos de insumos</title>
+<title>Pedidos de EPP</title>
 <link rel="stylesheet" href="estilos.css">
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
 </head>
@@ -15,7 +15,7 @@
     <div class="card">
       <div style="text-align:center;margin-bottom:1rem">
         <img src="logo.png" alt="" style="height:56px" onerror="this.remove()">
-        <h1 style="margin-top:.5rem">Pedidos de insumos</h1>
+        <h1 style="margin-top:.5rem">Pedidos de EPP</h1><div class="muted">Elementos de Protección Personal</div>
       </div>
       <div id="loginMsg" class="aviso error oculto"></div>
       <label for="lUsuario">Usuario</label>
@@ -31,7 +31,7 @@
 <div id="app" class="oculto">
   <div class="top">
     <img class="logo" src="logo.png" alt="" onerror="this.remove()">
-    <div class="titulo">Pedidos de insumos</div>
+    <div class="titulo">Pedidos de EPP</div>
     <div class="espacio"></div>
     <div class="usuario"><b id="yoNombre"></b><br><span id="yoRol"></span></div>
     <button class="btn sec chico" id="btnClave">Clave</button>
@@ -54,7 +54,7 @@
       <h2 style="margin-top:1.5rem">Últimos cerrados</h2>
       <div class="card tabla-wrap" style="padding:0">
         <table>
-          <thead><tr><th>#</th><th>Fecha</th><th>Área</th><th>Empleado</th><th>Insumos</th><th>Pidió</th><th>Estado</th><th>Cerrado por</th></tr></thead>
+          <thead><tr><th>#</th><th>Fecha</th><th>Área</th><th>Empleado</th><th>EPP</th><th>Pidió</th><th>Estado</th><th>Cerrado por</th></tr></thead>
           <tbody id="tablaHist"></tbody>
         </table>
       </div>
@@ -70,7 +70,7 @@
       <h2>Mis últimos pedidos</h2>
       <div class="card tabla-wrap" style="padding:0">
         <table>
-          <thead><tr><th>#</th><th>Fecha</th><th>Área</th><th>Empleado</th><th>Insumos</th><th>Estado</th></tr></thead>
+          <thead><tr><th>#</th><th>Fecha</th><th>Área</th><th>Empleado</th><th>EPP</th><th>Estado</th></tr></thead>
           <tbody id="tablaMios"></tbody>
         </table>
       </div>
@@ -83,7 +83,7 @@
           <div><label>Desde</label><input type="date" id="eDesde"></div>
           <div><label>Hasta</label><input type="date" id="eHasta"></div>
           <div style="flex:1"><label>Área</label><select id="eArea"><option value="">Todas</option></select></div>
-          <div style="flex:2"><label>Buscar empleado, legajo, insumo o supervisor</label><input id="eTexto" placeholder="Ej.: Pérez, 1234, guantes"></div>
+          <div style="flex:2"><label>Buscar empleado, legajo, EPP o supervisor</label><input id="eTexto" placeholder="Ej.: Pérez, 1234, guantes"></div>
           <div><label>&nbsp;</label><button class="btn" id="btnStats">Actualizar</button></div>
         </div>
         <div class="fila" style="margin-top:.6rem">
@@ -107,7 +107,7 @@
             <input id="aNombre" placeholder="Ej.: Desposte, Faena, Mantenimiento">
             <button class="btn" id="btnCrearArea">Crear</button>
           </div>
-          <p class="muted">Cada área tiene su propio QR y su matriz de insumos (lo que se puede pedir desde ese sector).</p>
+          <p class="muted">Cada área tiene su propio QR y su matriz de EPP (lo que se puede pedir desde ese sector).</p>
         </div>
         <div class="card">
           <h2>Carteles</h2>
@@ -232,7 +232,7 @@ function mostrarLogin(msg) {
   $('#lUsuario').focus();
 }
 
-function salir() { sesion.borrar(); yo = null; document.title = 'Pedidos de insumos'; mostrarLogin(); }
+function salir() { sesion.borrar(); yo = null; document.title = 'Pedidos de EPP'; mostrarLogin(); }
 
 function manejarError(e) {
   if (e.sesionVencida) { sesion.borrar(); mostrarLogin(e.message); return; }
@@ -330,7 +330,7 @@ async function cargarPendientes() {
   if (nuevos.length) avisar(nuevos);
   var bd = $('#badgePend');
   if (bd) { bd.textContent = lista.length; bd.classList.toggle('oculto', !lista.length); }
-  document.title = (lista.length ? '(' + lista.length + ') ' : '') + 'Pedidos de insumos';
+  document.title = (lista.length ? '(' + lista.length + ') ' : '') + 'Pedidos de EPP';
 }
 
 function pintarPendientes(lista, nuevos) {
@@ -429,7 +429,7 @@ function avisar(nuevos) {
   if ('Notification' in window && Notification.permission === 'granted') {
     nuevos.forEach(function (p) {
       try {
-        var n = new Notification('Nuevo pedido #' + p.id + ' - ' + p.area, {
+        var n = new Notification('Nuevo pedido de EPP #' + p.id + ' - ' + p.area, {
           body: p.empleado + ': ' + p.items.map(function (i) { return i.insumo + ' × ' + i.pedida; }).join(', '),
           tag: 'pedido-' + p.id
         });
@@ -537,7 +537,7 @@ function pintarStats() {
     '</div>';
 
   html += '<div class="grid">' +
-    '<div class="card"><h3>Insumos más entregados (unidades)</h3>' + barras(contar(entregadas, function (f) { return f.insumo; }, function (f) { return f.entregada; }), 12) + '</div>' +
+    '<div class="card"><h3>EPP más entregados (unidades)</h3>' + barras(contar(entregadas, function (f) { return f.insumo; }, function (f) { return f.entregada; }), 12) + '</div>' +
     '<div class="card"><h3>Empleados que más recibieron (unidades)</h3>' + barras(contar(entregadas, function (f) { return f.p.empleado + ' (' + f.p.legajo + ')'; }, function (f) { return f.entregada; }), 12) + '</div>' +
     '<div class="card"><h3>Pedidos por área</h3>' + barras(contar(ps.map(function (p) { return { p: p }; }), function (f) { return f.p.area; }, function () { return 1; }), 12) + '</div>' +
     '<div class="card"><h3>Pedidos por supervisor</h3>' + barras(contar(ps.map(function (p) { return { p: p }; }), function (f) { return f.p.solicitante || '(sin dato)'; }, function () { return 1; }), 12) + '</div>' +
@@ -548,7 +548,7 @@ function pintarStats() {
   var orden = filas.slice().sort(function (a, b) { return new Date(b.p.fecha) - new Date(a.p.fecha); });
   html += '<div class="card"><div class="fila"><h3 style="margin:0">Detalle: qué se pidió y a quién se le entregó</h3><span class="muted">' + filas.length + ' renglones</span><span class="espacio"></span>' +
     '<button class="btn sec chico" id="btnCsv">⬇ Descargar Excel (CSV)</button></div>' +
-    '<div class="tabla-wrap" style="max-height:520px;margin-top:.6rem"><table><thead><tr><th>Fecha</th><th>#</th><th>Área</th><th>Legajo</th><th>Empleado</th><th>Insumo</th><th class="num">Pedido</th><th class="num">Entregado</th><th>Estado</th><th>Pidió</th><th>Entregó</th></tr></thead><tbody>' +
+    '<div class="tabla-wrap" style="max-height:520px;margin-top:.6rem"><table><thead><tr><th>Fecha</th><th>#</th><th>Área</th><th>Legajo</th><th>Empleado</th><th>EPP</th><th class="num">Pedido</th><th class="num">Entregado</th><th>Estado</th><th>Pidió</th><th>Entregó</th></tr></thead><tbody>' +
     (orden.length ? orden.slice(0, MAXF).map(function (f) {
       return '<tr><td>' + esc(fechaHora(f.p.fecha)) + '</td><td>' + f.p.id + '</td><td>' + esc(f.p.area) + '</td><td>' + esc(f.p.legajo) + '</td><td>' + esc(f.p.empleado) +
         '</td><td>' + esc(f.insumo) + '</td><td class="num">' + f.pedida + '</td><td class="num">' + (f.p.estado === 'Pendiente' ? '—' : f.entregada) +
@@ -584,7 +584,7 @@ function columnasPorDia(ps) {
 }
 
 function descargarCsv(filas) {
-  var enc = ['Fecha', 'Pedido', 'Area', 'Legajo', 'Empleado', 'Insumo', 'Cantidad pedida', 'Cantidad entregada', 'Estado', 'Solicitado por', 'Entregado por', 'Fecha cierre', 'Observacion', 'Obs cierre'];
+  var enc = ['Fecha', 'Pedido', 'Area', 'Legajo', 'Empleado', 'EPP', 'Cantidad pedida', 'Cantidad entregada', 'Estado', 'Solicitado por', 'Entregado por', 'Fecha cierre', 'Observacion', 'Obs cierre'];
   var q = function (v) { v = String(v === null || v === undefined ? '' : v); return /[;"\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
   var lineas = [enc.join(';')].concat(filas.map(function (f) {
     return [fechaHora(f.p.fecha), f.p.id, f.p.area, f.p.legajo, f.p.empleado, f.insumo, f.pedida, f.p.estado === 'Pendiente' ? '' : f.entregada,
@@ -593,7 +593,7 @@ function descargarCsv(filas) {
   var blob = new Blob(['﻿' + lineas.join('\r\n')], { type: 'text/csv;charset=utf-8' });
   var a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = 'insumos_' + $('#eDesde').value + '_a_' + $('#eHasta').value + '.csv';
+  a.download = 'EPP_' + $('#eDesde').value + '_a_' + $('#eHasta').value + '.csv';
   a.click();
   setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
 }
@@ -613,8 +613,8 @@ function pintarAreas() {
   cont.innerHTML = areas.map(function (a, i) {
     return '<div class="area-item' + (a.activo ? '' : ' inactivo') + '">' +
       '<span class="nom">' + esc(a.nombre) + (a.activo ? '' : ' <span class="estado Rechazado">deshabilitada</span>') +
-      '<div class="muted" style="font-weight:400">' + (a.insumos.length ? a.insumos.length + ' insumos: ' + esc(a.insumos.slice(0, 5).join(', ')) + (a.insumos.length > 5 ? '…' : '') : '⚠ sin insumos cargados') + '</div></span>' +
-      '<button class="btn chico" data-i="' + i + '" data-a="matriz">Matriz de insumos</button>' +
+      '<div class="muted" style="font-weight:400">' + (a.insumos.length ? a.insumos.length + ' EPP: ' + esc(a.insumos.slice(0, 5).join(', ')) + (a.insumos.length > 5 ? '…' : '') : '⚠ sin EPP cargados') + '</div></span>' +
+      '<button class="btn chico" data-i="' + i + '" data-a="matriz">Matriz de EPP</button>' +
       '<button class="btn sec chico" data-i="' + i + '" data-a="qr">Ver QR</button>' +
       '<button class="btn sec chico" data-i="' + i + '" data-a="renombrar">Renombrar</button>' +
       '<button class="btn sec chico" data-i="' + i + '" data-a="activo">' + (a.activo ? 'Deshabilitar' : 'Habilitar') + '</button>' +
@@ -644,7 +644,7 @@ $('#btnCrearArea').onclick = function () {
     areas = await api('guardarArea', { nombre: n });
     $('#aNombre').value = '';
     pintarAreas();
-    toast('Área creada. Ahora cargale la matriz de insumos.', 'ok');
+    toast('Área creada. Ahora cargale la matriz de EPP.', 'ok');
     var nueva = areas.filter(function (a) { return a.nombre === n; })[0];
     if (nueva) editarMatriz(nueva);
   });
@@ -654,10 +654,10 @@ function editarMatriz(a) {
   var otros = {};
   areas.forEach(function (x) { x.insumos.forEach(function (s) { if (a.insumos.indexOf(s) < 0) otros[s] = true; }); });
   var chips = Object.keys(otros).sort(function (x, y) { return x.localeCompare(y); });
-  var m = modal('<h2>Matriz de insumos: ' + esc(a.nombre) + '</h2>' +
-    '<p class="muted" style="margin-top:0">Un insumo por renglón, en el orden en que querés que aparezcan. Podés pegar una columna de Excel.</p>' +
+  var m = modal('<h2>Matriz de EPP: ' + esc(a.nombre) + '</h2>' +
+    '<p class="muted" style="margin-top:0">Un EPP por renglón, en el orden en que querés que aparezcan. Podés pegar una columna de Excel.</p>' +
     '<textarea id="mTxt" style="min-height:220px">' + esc(a.insumos.join('\n')) + '</textarea>' +
-    (chips.length ? '<label>Insumos de otras áreas (tocá para agregar; usá el mismo nombre así las estadísticas los suman juntos):</label><div class="chips">' +
+    (chips.length ? '<label>EPP de otras áreas (tocá para agregar; usá el mismo nombre así las estadísticas los suman juntos):</label><div class="chips">' +
       chips.map(function (s) { return '<button class="chip">' + esc(s) + '</button>'; }).join('') + '</div>' : '') +
     '<div class="fila" style="margin-top:1rem"><button class="btn" id="mOk">Guardar matriz</button><button class="btn sec" data-cerrar>Cancelar</button></div>');
   $$('.chip', m).forEach(function (c) {
@@ -671,7 +671,7 @@ function editarMatriz(a) {
     var lista = $('#mTxt', m).value.split(/\r?\n/).map(function (s) { return s.split('\t')[0].trim(); }).filter(Boolean);
     conBoton(this, async function () {
       areas = await api('guardarMatriz', { codigo: a.codigo, insumos: lista });
-      pintarAreas(); m.remove(); toast('Matriz guardada (' + lista.length + ' insumos).', 'ok');
+      pintarAreas(); m.remove(); toast('Matriz guardada (' + lista.length + ' EPP).', 'ok');
     });
   };
 }
@@ -716,13 +716,13 @@ function imprimirCarteles(lista) {
   var w = window.open('', '_blank');
   if (!w) return toast('El navegador bloqueó la ventana. Permití ventanas emergentes para este sitio.', 'error');
   var logo = new URL('logo.png', location.href).href;
-  w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>QR insumos</title><style>' +
+  w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>QR EPP</title><style>' +
     'body{font-family:system-ui,Arial,sans-serif;margin:0}.c{height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;page-break-after:always;padding:2rem;box-sizing:border-box}' +
     '.c:last-child{page-break-after:auto}.t{font-size:28px;letter-spacing:.08em;color:#b8282f;font-weight:700}.a{font-size:54px;font-weight:800;margin:.2em 0 .4em}' +
     '.q svg{width:13cm;height:13cm}.p{font-size:22px;margin-top:.6em}.logo{height:60px;margin-bottom:1rem}@page{size:A4;margin:1cm}</style></head><body>' +
     lista.map(function (a) {
-      return '<div class="c"><img class="logo" src="' + logo + '" onerror="this.remove()"><div class="t">PEDIDO DE INSUMOS</div><div class="a">' + esc(a.nombre) + '</div>' +
-        '<div class="q">' + qrSvg(urlQR(a)) + '</div><div class="p">Escaneá con la cámara del celular,<br>elegí el empleado y los insumos.</div></div>';
+      return '<div class="c"><img class="logo" src="' + logo + '" onerror="this.remove()"><div class="t">PEDIDO DE EPP</div><div style="font-size:18px;color:#555">Elementos de Protección Personal</div><div class="a">' + esc(a.nombre) + '</div>' +
+        '<div class="q">' + qrSvg(urlQR(a)) + '</div><div class="p">Escaneá con la cámara del celular,<br>elegí el empleado y los EPP.</div></div>';
     }).join('') + '<script>window.onload=function(){setTimeout(function(){window.print()},400)}<\/script></body></html>');
   w.document.close();
 }
@@ -734,7 +734,7 @@ function descargarPngQR(a) {
   var x = c.getContext('2d');
   x.fillStyle = '#fff'; x.fillRect(0, 0, lado, alto);
   x.fillStyle = '#b8282f'; x.font = 'bold 26px system-ui, Arial'; x.textAlign = 'center';
-  x.fillText('PEDIDO DE INSUMOS', lado / 2, 40);
+  x.fillText('PEDIDO DE EPP', lado / 2, 40);
   x.fillStyle = '#111'; x.font = 'bold 38px system-ui, Arial';
   x.fillText(a.nombre, lado / 2, 88);
   for (var r = 0; r < n; r++) for (var k = 0; k < n; k++) if (q.isDark(r, k)) x.fillRect(marg + k * cel, 110 + marg + r * cel, cel, cel);

@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Pedido de insumos</title>
+<title>Pedido de EPP</title>
 <link rel="stylesheet" href="estilos.css">
 </head>
 <body class="qr-page">
 <header>
-  <div class="muted" style="color:#fde">Pedido de insumos</div>
+  <div class="muted" style="color:#fde">Pedido de EPP</div>
   <div class="sector" id="sector">Cargando…</div>
   <div id="quien" class="oculto" style="font-size:.85em;margin-top:.3rem;color:#fde">
     <span id="quienNombre"></span> · <button class="link" id="btnSalir" style="color:#fff">Salir</button>
@@ -21,7 +21,7 @@
   <!-- Login del supervisor -->
   <div id="login" class="card oculto">
     <h2>Ingresá para hacer el pedido</h2>
-    <p class="muted" style="margin-top:0">Solo los supervisores habilitados pueden pedir insumos. Ingresás una vez y el celular te recuerda.</p>
+    <p class="muted" style="margin-top:0">Solo los supervisores habilitados pueden pedir EPP. Ingresás una vez y el celular te recuerda.</p>
     <div id="loginMsg" class="aviso error oculto"></div>
     <label for="lUsuario">Usuario</label>
     <input id="lUsuario" autocomplete="username" autocapitalize="none">
@@ -53,8 +53,8 @@
 
     <!-- Paso 2: insumos -->
     <div class="card">
-      <p class="paso"><span class="n">2</span>¿Qué insumos necesitás?</p>
-      <input id="filtro" class="oculto" placeholder="Filtrar insumos…" style="margin-bottom:.4rem">
+      <p class="paso"><span class="n">2</span>¿Qué EPP necesitás?</p>
+      <input id="filtro" class="oculto" placeholder="Filtrar EPP…" style="margin-bottom:.4rem">
       <div id="insumos"></div>
       <label for="obs">Observación (opcional)</label>
       <textarea id="obs" maxlength="300" placeholder="Ej.: talle L, se rompió el anterior…" style="min-height:60px"></textarea>
@@ -121,8 +121,8 @@ async function iniciar() {
   }
   $('#error').classList.add('oculto');
   $('#sector').textContent = area.nombre;
-  document.title = 'Pedido de insumos - ' + area.nombre;
-  if (!area.insumos.length) return mostrarError('Este sector todavía no tiene insumos cargados. Avisale a Seguridad e Higiene.');
+  document.title = 'Pedido de EPP - ' + area.nombre;
+  if (!area.insumos.length) return mostrarError('Este sector todavía no tiene EPP cargados. Avisale a Seguridad e Higiene.');
   if (area.insumos.length > 12) $('#filtro').classList.remove('oculto');
   pintarInsumos();
   var ult = null;
@@ -200,13 +200,13 @@ function itemsElegidos() {
 function actualizarResumen() {
   var it = itemsElegidos();
   var u = it.reduce(function (s, x) { return s + x.cantidad; }, 0);
-  $('#resumen').textContent = it.length ? it.length + ' insumo(s), ' + u + ' unidad(es)' + (empleado ? ' para ' + empleado.nombre : '') : '';
+  $('#resumen').textContent = it.length ? it.length + ' EPP, ' + u + ' unidad(es)' + (empleado ? ' para ' + empleado.nombre : '') : '';
 }
 
 async function enviar() {
   var it = itemsElegidos();
   if (!empleado) { toast('Elegí para quién es el pedido (paso 1).', 'error'); $('#q').focus(); return; }
-  if (!it.length) { toast('Elegí al menos un insumo (paso 2).', 'error'); return; }
+  if (!it.length) { toast('Elegí al menos un EPP (paso 2).', 'error'); return; }
   var b = $('#btnEnviar');
   b.disabled = true; b.textContent = 'Enviando…';
   try {
