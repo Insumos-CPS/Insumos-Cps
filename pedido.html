@@ -10,10 +10,25 @@
 <header>
   <div class="muted" style="color:#fde">Pedido de insumos</div>
   <div class="sector" id="sector">Cargando…</div>
+  <div id="quien" class="oculto" style="font-size:.85em;margin-top:.3rem;color:#fde">
+    <span id="quienNombre"></span> · <button class="link" id="btnSalir" style="color:#fff">Salir</button>
+  </div>
 </header>
 
 <main class="angosto">
   <div id="error" class="aviso error oculto"></div>
+
+  <!-- Login del supervisor -->
+  <div id="login" class="card oculto">
+    <h2>Ingresá para hacer el pedido</h2>
+    <p class="muted" style="margin-top:0">Solo los supervisores habilitados pueden pedir insumos. Ingresás una vez y el celular te recuerda.</p>
+    <div id="loginMsg" class="aviso error oculto"></div>
+    <label for="lUsuario">Usuario</label>
+    <input id="lUsuario" autocomplete="username" autocapitalize="none">
+    <label for="lClave">Contraseña</label>
+    <input id="lClave" type="password" autocomplete="current-password">
+    <button class="btn grande" id="btnLogin" style="margin-top:1rem">Ingresar</button>
+  </div>
 
   <div id="form" class="oculto">
     <!-- Paso 1: empleado -->
@@ -62,13 +77,49 @@
 var codigo = new URLSearchParams(location.search).get('a') || '';
 var area = null, empleado = null, cantidades = {}, nonce = nuevoNonce();
 
-function mostrarError(msg) { var e = $('#error'); e.textContent = msg; e.classList.remove('oculto'); }
+function mostrarError(msg, conSalir) {
+  var e = $('#error');
+  e.innerHTML = esc(msg) + (conSalir ? '<div style="margin-top:.5rem"><button class="link" onclick="salir()">Ingresar con otro usuario</button></div>' : '');
+  e.classList.remove('oculto');
+}
+
+function mostrarLogin(msg) {
+  $('#form').classList.add('oculto');
+  $('#quien').classList.add('oculto');
+  $('#error').classList.add('oculto');
+  $('#login').classList.remove('oculto');
+  if (msg) { $('#loginMsg').textContent = msg; $('#loginMsg').classList.remove('oculto'); }
+  $('#lUsuario').focus();
+}
+
+function salir() { sesion.borrar(); mostrarLogin(); }
+
+async function login() {
+  var b = $('#btnLogin'); b.disabled = true;
+  $('#loginMsg').classList.add('oculto');
+  try {
+    var r = await api('login', { usuario: $('#lUsuario').value, clave: $('#lClave').value });
+    sesion.guardar({ token: r.token, usuario: r.usuario });
+    $('#lClave').value = '';
+    $('#login').classList.add('oculto');
+    iniciar();
+  } catch (e) { $('#loginMsg').textContent = e.message; $('#loginMsg').classList.remove('oculto'); }
+  finally { b.disabled = false; }
+}
 
 async function iniciar() {
   if (!codigo) { $('#sector').textContent = '—'; return mostrarError('Este link no tiene sector. Escaneá el QR del sector.'); }
+  var s = sesion.leer();
+  if (!s || !s.token) { $('#sector').textContent = 'Ingresá'; return mostrarLogin(); }
+  $('#quienNombre').textContent = 'Pide: ' + s.usuario.nombre;
+  $('#quien').classList.remove('oculto');
   try {
     area = await api('area', { codigo: codigo });
-  } catch (e) { $('#sector').textContent = '—'; return mostrarError(e.message); }
+  } catch (e) {
+    if (e.sesionVencida) { sesion.borrar(); return mostrarLogin(e.message); }
+    $('#sector').textContent = '—'; return mostrarError(e.message, true);
+  }
+  $('#error').classList.add('oculto');
   $('#sector').textContent = area.nombre;
   document.title = 'Pedido de insumos - ' + area.nombre;
   if (!area.insumos.length) return mostrarError('Este sector todavía no tiene insumos cargados. Avisale a Seguridad e Higiene.');
@@ -76,7 +127,7 @@ async function iniciar() {
   pintarInsumos();
   var ult = null;
   try { ult = JSON.parse(localStorage.getItem('insumos_ultimo_empleado')); } catch (e) {}
-  if (ult && ult.legajo) {
+  if (ult && ult.legajo && !empleado) {
     $('#btnSugerido').innerHTML = '👤 <b>' + esc(ult.nombre) + '</b> <span class="muted">(legajo ' + esc(ult.legajo) + ')</span>';
     $('#btnSugerido').onclick = function () { elegir(ult); };
     $('#sugerido').classList.remove('oculto');
@@ -101,7 +152,10 @@ async function buscar() {
       cont.appendChild(b);
     });
     if (r.length === 1 && /^\d+$/.test(q)) elegir(r[0]);
-  } catch (e) { cont.innerHTML = '<p class="aviso error">' + esc(e.message) + '</p>'; }
+  } catch (e) {
+    if (e.sesionVencida) { sesion.borrar(); return mostrarLogin(e.message); }
+    cont.innerHTML = '<p class="aviso error">' + esc(e.message) + '</p>';
+  }
 }
 
 function elegir(emp) {
@@ -164,7 +218,8 @@ async function enviar() {
     $('#listo').classList.remove('oculto');
     window.scrollTo(0, 0);
   } catch (e) {
-    toast(e.message, 'error');
+    if (e.sesionVencida) { sesion.borrar(); mostrarLogin(e.message + ' Tu pedido no se perdió: ingresá y tocá Enviar de nuevo.'); }
+    else toast(e.message, 'error');
   } finally {
     b.disabled = false; b.textContent = 'Enviar pedido';
   }
@@ -181,6 +236,10 @@ function otro() {
   pintarInsumos(); actualizarResumen();
 }
 
+$('#btnLogin').onclick = login;
+$('#lClave').addEventListener('keydown', function (e) { if (e.key === 'Enter') login(); });
+$('#lUsuario').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('#lClave').focus(); });
+$('#btnSalir').onclick = salir;
 $('#btnBuscar').onclick = buscar;
 $('#q').addEventListener('keydown', function (e) { if (e.key === 'Enter') buscar(); });
 $('#btnCambiarEmp').onclick = function () {

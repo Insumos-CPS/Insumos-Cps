@@ -54,8 +54,24 @@
       <h2 style="margin-top:1.5rem">Últimos cerrados</h2>
       <div class="card tabla-wrap" style="padding:0">
         <table>
-          <thead><tr><th>#</th><th>Fecha</th><th>Área</th><th>Empleado</th><th>Insumos</th><th>Estado</th><th>Cerrado por</th></tr></thead>
+          <thead><tr><th>#</th><th>Fecha</th><th>Área</th><th>Empleado</th><th>Insumos</th><th>Pidió</th><th>Estado</th><th>Cerrado por</th></tr></thead>
           <tbody id="tablaHist"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ---------- HACER PEDIDO (supervisor de sector) ---------- -->
+    <section id="v-pedir" class="vista oculto">
+      <div class="card">
+        <h2>Hacer un pedido</h2>
+        <p class="muted" style="margin-top:0">Escaneá el QR del sector con el celular, o elegí el área acá:</p>
+        <div id="misAreas" class="fila"></div>
+      </div>
+      <h2>Mis últimos pedidos</h2>
+      <div class="card tabla-wrap" style="padding:0">
+        <table>
+          <thead><tr><th>#</th><th>Fecha</th><th>Área</th><th>Empleado</th><th>Insumos</th><th>Estado</th></tr></thead>
+          <tbody id="tablaMios"></tbody>
         </table>
       </div>
     </section>
@@ -67,7 +83,7 @@
           <div><label>Desde</label><input type="date" id="eDesde"></div>
           <div><label>Hasta</label><input type="date" id="eHasta"></div>
           <div style="flex:1"><label>Área</label><select id="eArea"><option value="">Todas</option></select></div>
-          <div style="flex:2"><label>Buscar empleado, legajo o insumo</label><input id="eTexto" placeholder="Ej.: Pérez, 1234, guantes"></div>
+          <div style="flex:2"><label>Buscar empleado, legajo, insumo o supervisor</label><input id="eTexto" placeholder="Ej.: Pérez, 1234, guantes"></div>
           <div><label>&nbsp;</label><button class="btn" id="btnStats">Actualizar</button></div>
         </div>
         <div class="fila" style="margin-top:.6rem">
@@ -143,28 +159,33 @@
 
     <!-- ---------- USUARIOS ---------- -->
     <section id="v-usuarios" class="vista oculto">
-      <div class="grid">
-        <div class="card">
+      <div style="display:flex;flex-wrap:wrap;align-items:flex-start;gap:1rem">
+        <div class="card" style="flex:1 1 320px">
           <h2 id="uTitulo">Nuevo usuario</h2>
           <label>Usuario (para ingresar)</label><input id="uUsuario" autocapitalize="none" placeholder="ej.: belen">
           <label>Nombre</label><input id="uNombre" placeholder="ej.: Belén (Seguridad e Higiene)">
           <label>Rol</label>
           <select id="uRol">
+            <option value="supervisor">Supervisor de sector: solo hace pedidos con el QR de sus áreas</option>
             <option value="deposito">Depósito: ve y cierra pedidos</option>
-            <option value="supervisor">Supervisor / Seguridad e Higiene: + estadísticas, áreas, QR, matriz, empleados</option>
+            <option value="seh">Seguridad e Higiene: estadísticas, áreas, QR, matriz, empleados (y puede pedir)</option>
             <option value="admin">Administrador: todo, incluidos usuarios</option>
           </select>
+          <div id="uAreasBox">
+            <label>Áreas en las que puede pedir</label>
+            <div id="uAreas" class="chips"></div>
+          </div>
           <label>Contraseña <span id="uClaveAyuda" class="muted"></span></label><input id="uClave" type="text" autocomplete="off">
           <div class="fila" style="margin-top:.8rem">
             <button class="btn" id="btnGuardarUsuario">Guardar</button>
             <button class="btn sec oculto" id="btnCancelarUsuario">Cancelar</button>
           </div>
         </div>
-        <div class="card">
+        <div class="card" style="flex:2 1 560px">
           <h2>Usuarios</h2>
           <div class="tabla-wrap">
             <table>
-              <thead><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Estado</th><th></th></tr></thead>
+              <thead><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Áreas</th><th>Estado</th><th></th></tr></thead>
               <tbody id="tablaUsu"></tbody>
             </table>
           </div>
@@ -177,14 +198,14 @@
 <script src="comun.js"></script>
 <script>
 // =============================================================
-var NIVEL = { deposito: 1, supervisor: 2, admin: 3 };
-var NOMBRE_ROL = { deposito: 'Depósito', supervisor: 'Supervisor / SeH', admin: 'Administrador' };
+var NOMBRE_ROL = { supervisor: 'Supervisor de sector', deposito: 'Depósito', seh: 'Seguridad e Higiene', admin: 'Administrador' };
 var TABS = [
-  { id: 'pedidos', txt: 'Pedidos', nivel: 1 },
-  { id: 'estadisticas', txt: 'Estadísticas', nivel: 2 },
-  { id: 'areas', txt: 'Áreas y QR', nivel: 2 },
-  { id: 'empleados', txt: 'Empleados', nivel: 2 },
-  { id: 'usuarios', txt: 'Usuarios', nivel: 3 }
+  { id: 'pedir', txt: 'Hacer pedido', roles: ['supervisor'] },
+  { id: 'pedidos', txt: 'Pedidos', roles: ['deposito', 'seh', 'admin'] },
+  { id: 'estadisticas', txt: 'Estadísticas', roles: ['seh', 'admin'] },
+  { id: 'areas', txt: 'Áreas y QR', roles: ['seh', 'admin'] },
+  { id: 'empleados', txt: 'Empleados', roles: ['seh', 'admin'] },
+  { id: 'usuarios', txt: 'Usuarios', roles: ['admin'] }
 ];
 var yo = null, timerPoll = null;
 
@@ -226,7 +247,7 @@ function entrar(u) {
   $('#yoRol').textContent = NOMBRE_ROL[u.rol] || u.rol;
   var nav = $('#tabs');
   nav.innerHTML = '';
-  TABS.filter(function (t) { return NIVEL[u.rol] >= t.nivel; }).forEach(function (t) {
+  TABS.filter(function (t) { return t.roles.indexOf(u.rol) >= 0; }).forEach(function (t) {
     var b = document.createElement('button');
     b.dataset.tab = t.id;
     b.innerHTML = esc(t.txt) + (t.id === 'pedidos' ? '<span class="badge oculto" id="badgePend"></span>' : '');
@@ -235,11 +256,13 @@ function entrar(u) {
   });
   var ult = null;
   try { ult = localStorage.getItem('insumos_tab_' + u.usuario); } catch (e) {}
-  var defecto = u.rol === 'deposito' ? 'pedidos' : 'estadisticas';
+  var defecto = { supervisor: 'pedir', deposito: 'pedidos' }[u.rol] || 'estadisticas';
   irA(ult && $('[data-tab="' + ult + '"]') ? ult : defecto);
-  cargarPendientes();
   clearInterval(timerPoll);
-  timerPoll = setInterval(cargarPendientes, 15000);
+  if (u.rol !== 'supervisor') {
+    cargarPendientes();
+    timerPoll = setInterval(cargarPendientes, 15000);
+  }
 }
 
 function irA(id) {
@@ -247,6 +270,7 @@ function irA(id) {
   $('#v-' + id).classList.remove('oculto');
   $$('#tabs button').forEach(function (b) { b.classList.toggle('activa', b.dataset.tab === id); });
   try { localStorage.setItem('insumos_tab_' + yo.usuario, id); } catch (e) {}
+  if (id === 'pedir') cargarPedir();
   if (id === 'pedidos') cargarHistorial();
   if (id === 'estadisticas' && !statsCargadas) cargarStats();
   if (id === 'areas') cargarAreas();
@@ -324,6 +348,7 @@ function pintarPendientes(lista, nuevos) {
       '<div class="cab"><span class="num">#' + p.id + '</span><span class="muted" title="' + esc(fechaHora(p.fecha)) + '">' + esc(haceCuanto(p.fecha)) + '</span></div>' +
       '<div class="muted">' + esc(p.area) + '</div>' +
       '<div class="emp">' + esc(p.empleado) + ' <span class="muted">· legajo ' + esc(p.legajo) + '</span></div>' +
+      (p.solicitante ? '<div class="muted">Pidió: ' + esc(p.solicitante) + '</div>' : '') +
       '<ul>' + p.items.map(function (it) {
         var k = p.id + '|' + it.insumo;
         var val = tipeado[k] !== undefined ? tipeado[k] : it.pedida;
@@ -368,10 +393,10 @@ async function cargarHistorial() {
       return '<tr><td>' + p.id + '</td><td>' + esc(fechaHora(p.fecha)) + '</td><td>' + esc(p.area) + '</td><td>' + esc(p.empleado) +
         ' <span class="muted">(' + esc(p.legajo) + ')</span></td><td>' + p.items.map(function (it) {
           return esc(it.insumo) + ' × ' + (it.entregada === null ? it.pedida : it.entregada) + (it.entregada !== null && it.entregada !== it.pedida && p.estado === 'Entregado' ? ' <span class="muted">(pidió ' + it.pedida + ')</span>' : '');
-        }).join('<br>') + '</td><td><span class="estado ' + esc(p.estado) + '">' + esc(p.estado) + '</span>' +
+        }).join('<br>') + '</td><td>' + esc(p.solicitante) + '</td><td><span class="estado ' + esc(p.estado) + '">' + esc(p.estado) + '</span>' +
         (p.obsCierre ? '<div class="muted">' + esc(p.obsCierre) + '</div>' : '') + '</td><td>' + esc(p.cerradoPor) +
         '<div class="muted">' + esc(fechaHora(p.fechaCierre)) + '</div></td></tr>';
-    }).join('') : '<tr><td colspan="7" class="muted">Todavía no hay pedidos cerrados.</td></tr>';
+    }).join('') : '<tr><td colspan="8" class="muted">Todavía no hay pedidos cerrados.</td></tr>';
   } catch (e) { manejarError(e); }
 }
 
@@ -415,6 +440,23 @@ function avisar(nuevos) {
 }
 
 // =============================================================
+// HACER PEDIDO (supervisor de sector)
+// =============================================================
+async function cargarPedir() {
+  try {
+    var r = await Promise.all([api('misAreas'), api('misPedidos')]);
+    $('#misAreas').innerHTML = r[0].length ? r[0].map(function (a) {
+      return '<a class="btn" href="pedido.html?a=' + encodeURIComponent(a.codigo) + '">' + esc(a.nombre) + '</a>';
+    }).join('') : '<p class="aviso alerta" style="margin:0">Todavía no tenés áreas asignadas. Pedile al administrador que te las asigne.</p>';
+    $('#tablaMios').innerHTML = r[1].length ? r[1].map(function (p) {
+      return '<tr><td>' + p.id + '</td><td>' + esc(fechaHora(p.fecha)) + '</td><td>' + esc(p.area) + '</td><td>' + esc(p.empleado) + '</td><td>' +
+        p.items.map(function (it) { return esc(it.insumo) + ' × ' + (it.entregada === null ? it.pedida : it.entregada); }).join('<br>') +
+        '</td><td><span class="estado ' + esc(p.estado) + '">' + esc(p.estado) + '</span>' + (p.obsCierre ? '<div class="muted">' + esc(p.obsCierre) + '</div>' : '') + '</td></tr>';
+    }).join('') : '<tr><td colspan="6" class="muted">Todavía no hiciste pedidos.</td></tr>';
+  } catch (e) { manejarError(e); }
+}
+
+// =============================================================
 // ESTADÍSTICAS
 // =============================================================
 var statsDatos = [], statsCargadas = false;
@@ -447,7 +489,7 @@ function filasStats() {
     if (area && p.area !== area) return;
     p.items.forEach(function (it) {
       var f = { p: p, insumo: it.insumo, pedida: it.pedida, entregada: it.entregada || 0 };
-      if (t && normalizar(p.empleado + ' ' + p.legajo + ' ' + it.insumo).indexOf(t) < 0) return;
+      if (t && normalizar(p.empleado + ' ' + p.legajo + ' ' + it.insumo + ' ' + (p.solicitante || '')).indexOf(t) < 0) return;
       filas.push(f);
     });
   });
@@ -498,6 +540,7 @@ function pintarStats() {
     '<div class="card"><h3>Insumos más entregados (unidades)</h3>' + barras(contar(entregadas, function (f) { return f.insumo; }, function (f) { return f.entregada; }), 12) + '</div>' +
     '<div class="card"><h3>Empleados que más recibieron (unidades)</h3>' + barras(contar(entregadas, function (f) { return f.p.empleado + ' (' + f.p.legajo + ')'; }, function (f) { return f.entregada; }), 12) + '</div>' +
     '<div class="card"><h3>Pedidos por área</h3>' + barras(contar(ps.map(function (p) { return { p: p }; }), function (f) { return f.p.area; }, function () { return 1; }), 12) + '</div>' +
+    '<div class="card"><h3>Pedidos por supervisor</h3>' + barras(contar(ps.map(function (p) { return { p: p }; }), function (f) { return f.p.solicitante || '(sin dato)'; }, function () { return 1; }), 12) + '</div>' +
     '<div class="card"><h3>Pedidos por día</h3>' + columnasPorDia(ps) + '</div>' +
     '</div>';
 
@@ -505,12 +548,12 @@ function pintarStats() {
   var orden = filas.slice().sort(function (a, b) { return new Date(b.p.fecha) - new Date(a.p.fecha); });
   html += '<div class="card"><div class="fila"><h3 style="margin:0">Detalle: qué se pidió y a quién se le entregó</h3><span class="muted">' + filas.length + ' renglones</span><span class="espacio"></span>' +
     '<button class="btn sec chico" id="btnCsv">⬇ Descargar Excel (CSV)</button></div>' +
-    '<div class="tabla-wrap" style="max-height:520px;margin-top:.6rem"><table><thead><tr><th>Fecha</th><th>#</th><th>Área</th><th>Legajo</th><th>Empleado</th><th>Insumo</th><th class="num">Pedido</th><th class="num">Entregado</th><th>Estado</th><th>Entregó</th></tr></thead><tbody>' +
+    '<div class="tabla-wrap" style="max-height:520px;margin-top:.6rem"><table><thead><tr><th>Fecha</th><th>#</th><th>Área</th><th>Legajo</th><th>Empleado</th><th>Insumo</th><th class="num">Pedido</th><th class="num">Entregado</th><th>Estado</th><th>Pidió</th><th>Entregó</th></tr></thead><tbody>' +
     (orden.length ? orden.slice(0, MAXF).map(function (f) {
       return '<tr><td>' + esc(fechaHora(f.p.fecha)) + '</td><td>' + f.p.id + '</td><td>' + esc(f.p.area) + '</td><td>' + esc(f.p.legajo) + '</td><td>' + esc(f.p.empleado) +
         '</td><td>' + esc(f.insumo) + '</td><td class="num">' + f.pedida + '</td><td class="num">' + (f.p.estado === 'Pendiente' ? '—' : f.entregada) +
-        '</td><td><span class="estado ' + esc(f.p.estado) + '">' + esc(f.p.estado) + '</span></td><td>' + esc(f.p.cerradoPor) + '</td></tr>';
-    }).join('') : '<tr><td colspan="10" class="muted">Sin datos para este filtro.</td></tr>') +
+        '</td><td><span class="estado ' + esc(f.p.estado) + '">' + esc(f.p.estado) + '</span></td><td>' + esc(f.p.solicitante) + '</td><td>' + esc(f.p.cerradoPor) + '</td></tr>';
+    }).join('') : '<tr><td colspan="11" class="muted">Sin datos para este filtro.</td></tr>') +
     '</tbody></table></div>' + (orden.length > MAXF ? '<p class="muted">Se muestran los ' + MAXF + ' más recientes; el CSV trae todo.</p>' : '') + '</div>';
 
   $('#statsCuerpo').innerHTML = html;
@@ -541,11 +584,11 @@ function columnasPorDia(ps) {
 }
 
 function descargarCsv(filas) {
-  var enc = ['Fecha', 'Pedido', 'Area', 'Legajo', 'Empleado', 'Insumo', 'Cantidad pedida', 'Cantidad entregada', 'Estado', 'Entregado por', 'Fecha cierre', 'Observacion', 'Obs cierre'];
+  var enc = ['Fecha', 'Pedido', 'Area', 'Legajo', 'Empleado', 'Insumo', 'Cantidad pedida', 'Cantidad entregada', 'Estado', 'Solicitado por', 'Entregado por', 'Fecha cierre', 'Observacion', 'Obs cierre'];
   var q = function (v) { v = String(v === null || v === undefined ? '' : v); return /[;"\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
   var lineas = [enc.join(';')].concat(filas.map(function (f) {
     return [fechaHora(f.p.fecha), f.p.id, f.p.area, f.p.legajo, f.p.empleado, f.insumo, f.pedida, f.p.estado === 'Pendiente' ? '' : f.entregada,
-      f.p.estado, f.p.cerradoPor, fechaHora(f.p.fechaCierre), f.p.obs, f.p.obsCierre].map(q).join(';');
+      f.p.estado, f.p.solicitante, f.p.cerradoPor, fechaHora(f.p.fechaCierre), f.p.obs, f.p.obsCierre].map(q).join(';');
   }));
   var blob = new Blob(['﻿' + lineas.join('\r\n')], { type: 'text/csv;charset=utf-8' });
   var a = document.createElement('a');
@@ -799,15 +842,32 @@ $('#emVerBajas').addEventListener('change', pintarEmpleados);
 var usuarios = [], editandoUsuario = null;
 
 async function cargarUsuarios() {
-  try { usuarios = await api('usuarios'); pintarUsuarios(); } catch (e) { manejarError(e); }
+  try {
+    var r = await Promise.all([api('usuarios'), api('areas')]);
+    usuarios = r[0]; areas = r[1]; pintarUsuarios();
+  } catch (e) { manejarError(e); }
 }
+
+function nombresAreas(codigos) {
+  return codigos.map(function (c) { var a = areas.filter(function (x) { return x.codigo === c; })[0]; return a ? a.nombre : null; }).filter(Boolean).join(', ');
+}
+
+function pintarChecksAreas(marcadas) {
+  $('#uAreas').innerHTML = areas.length ? areas.map(function (a) {
+    return '<label class="chip" style="margin:0;color:var(--tinta)"><input type="checkbox" value="' + esc(a.codigo) + '" style="width:auto;margin-right:.3em"' +
+      (marcadas.indexOf(a.codigo) >= 0 ? ' checked' : '') + '>' + esc(a.nombre) + '</label>';
+  }).join('') : '<span class="muted">Primero creá las áreas en "Áreas y QR".</span>';
+}
+
+function toggleAreasBox() { $('#uAreasBox').classList.toggle('oculto', $('#uRol').value !== 'supervisor'); }
 
 function pintarUsuarios() {
   $('#tablaUsu').innerHTML = usuarios.map(function (u, i) {
     return '<tr class="' + (u.activo ? '' : 'inactivo') + '"><td>' + esc(u.usuario) + '</td><td>' + esc(u.nombre) + '</td><td>' + esc(NOMBRE_ROL[u.rol] || u.rol) + '</td><td>' +
-      (u.activo ? '<span class="estado Entregado">Activo</span>' : '<span class="estado Rechazado">Inactivo</span>') + '</td><td style="white-space:nowrap">' +
-      '<button class="btn sec chico" data-i="' + i + '" data-a="editar">Editar</button> ' +
-      (u.usuario !== yo.usuario ? '<button class="btn sec chico" data-i="' + i + '" data-a="estado">' + (u.activo ? 'Desactivar' : 'Activar') + '</button>' : '') + '</td></tr>';
+      (u.rol === 'supervisor' ? (esc(nombresAreas(u.areas)) || '<span class="estado Pendiente">sin áreas</span>') : u.rol === 'deposito' ? '<span class="muted">no pide</span>' : '<span class="muted">todas</span>') + '</td><td>' +
+      (u.activo ? '<span class="estado Entregado">Activo</span>' : '<span class="estado Rechazado">Inactivo</span>') + '</td><td>' +
+      '<div class="fila" style="gap:.3rem;flex-wrap:nowrap"><button class="btn sec chico" data-i="' + i + '" data-a="editar">Editar</button>' +
+      (u.usuario !== yo.usuario ? '<button class="btn sec chico" data-i="' + i + '" data-a="estado">' + (u.activo ? 'Desactivar' : 'Activar') + '</button>' : '') + '</div></td></tr>';
   }).join('');
   formUsuario(editandoUsuario);
 }
@@ -818,7 +878,9 @@ function formUsuario(u) {
   $('#uUsuario').value = u ? u.usuario : '';
   $('#uUsuario').disabled = !!u;
   $('#uNombre').value = u ? u.nombre : '';
-  $('#uRol').value = u ? u.rol : 'deposito';
+  $('#uRol').value = u ? u.rol : 'supervisor';
+  pintarChecksAreas(u ? u.areas || [] : []);
+  toggleAreasBox();
   $('#uClave').value = '';
   $('#uClaveAyuda').textContent = u ? '(dejala vacía para no cambiarla)' : '(mínimo 6)';
   $('#btnCancelarUsuario').classList.toggle('oculto', !u);
@@ -834,6 +896,10 @@ $('#tablaUsu').addEventListener('click', function (e) {
 
 $('#btnGuardarUsuario').onclick = function () {
   var datos = { usuario: $('#uUsuario').value, nombre: $('#uNombre').value, rol: $('#uRol').value };
+  if (datos.rol === 'supervisor') {
+    datos.areas = $$('#uAreas input:checked').map(function (i) { return i.value; });
+    if (!datos.areas.length && !window.confirm('No marcaste ninguna área: este supervisor no va a poder pedir hasta que le asignes una. ¿Guardar igual?')) return;
+  } else datos.areas = [];
   if ($('#uClave').value) datos.clave = $('#uClave').value;
   conBoton(this, async function () {
     usuarios = await api('guardarUsuario', datos);
@@ -841,6 +907,7 @@ $('#btnGuardarUsuario').onclick = function () {
   });
 };
 $('#btnCancelarUsuario').onclick = function () { formUsuario(null); };
+$('#uRol').addEventListener('change', toggleAreasBox);
 
 // =============================================================
 // Inicio
