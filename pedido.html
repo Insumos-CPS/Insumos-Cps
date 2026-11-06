@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pedido de insumos</title>
+<link rel="stylesheet" href="estilos.css">
+</head>
+<body class="qr-page">
+<header>
+  <div class="muted" style="color:#fde">Pedido de insumos</div>
+  <div class="sector" id="sector">Cargando…</div>
+</header>
+
+<main class="angosto">
+  <div id="error" class="aviso error oculto"></div>
+
+  <div id="form" class="oculto">
+    <!-- Paso 1: empleado -->
+    <div class="card">
+      <p class="paso"><span class="n">1</span>¿Para quién es el pedido?</p>
+      <div id="sugerido" class="oculto">
+        <button class="resultado" id="btnSugerido"></button>
+        <div class="muted" style="margin:.5rem 0">o buscá otro empleado:</div>
+      </div>
+      <div id="buscador">
+        <div class="fila">
+          <input id="q" placeholder="Legajo o apellido" autocomplete="off" inputmode="search">
+          <button class="btn" id="btnBuscar">Buscar</button>
+        </div>
+        <div id="resultados"></div>
+      </div>
+      <div id="empElegido" class="elegido oculto">
+        <span>👤</span><span class="n" id="empNombre"></span>
+        <button class="link" id="btnCambiarEmp">Cambiar</button>
+      </div>
+    </div>
+
+    <!-- Paso 2: insumos -->
+    <div class="card">
+      <p class="paso"><span class="n">2</span>¿Qué insumos necesitás?</p>
+      <input id="filtro" class="oculto" placeholder="Filtrar insumos…" style="margin-bottom:.4rem">
+      <div id="insumos"></div>
+      <label for="obs">Observación (opcional)</label>
+      <textarea id="obs" maxlength="300" placeholder="Ej.: talle L, se rompió el anterior…" style="min-height:60px"></textarea>
+    </div>
+
+    <button class="btn grande" id="btnEnviar">Enviar pedido</button>
+    <p class="muted" style="text-align:center" id="resumen"></p>
+  </div>
+
+  <div id="listo" class="card listo oculto">
+    <div class="tilde">✔</div>
+    <h2 id="listoTitulo">Pedido enviado</h2>
+    <p id="listoTexto"></p>
+    <button class="btn sec" id="btnOtro">Hacer otro pedido</button>
+  </div>
+</main>
+
+<script src="comun.js"></script>
+<script>
+var codigo = new URLSearchParams(location.search).get('a') || '';
+var area = null, empleado = null, cantidades = {}, nonce = nuevoNonce();
+
+function mostrarError(msg) { var e = $('#error'); e.textContent = msg; e.classList.remove('oculto'); }
+
+async function iniciar() {
+  if (!codigo) { $('#sector').textContent = '—'; return mostrarError('Este link no tiene sector. Escaneá el QR del sector.'); }
+  try {
+    area = await api('area', { codigo: codigo });
+  } catch (e) { $('#sector').textContent = '—'; return mostrarError(e.message); }
+  $('#sector').textContent = area.nombre;
+  document.title = 'Pedido de insumos - ' + area.nombre;
+  if (!area.insumos.length) return mostrarError('Este sector todavía no tiene insumos cargados. Avisale a Seguridad e Higiene.');
+  if (area.insumos.length > 12) $('#filtro').classList.remove('oculto');
+  pintarInsumos();
+  var ult = null;
+  try { ult = JSON.parse(localStorage.getItem('insumos_ultimo_empleado')); } catch (e) {}
+  if (ult && ult.legajo) {
+    $('#btnSugerido').innerHTML = '👤 <b>' + esc(ult.nombre) + '</b> <span class="muted">(legajo ' + esc(ult.legajo) + ')</span>';
+    $('#btnSugerido').onclick = function () { elegir(ult); };
+    $('#sugerido').classList.remove('oculto');
+  }
+  $('#form').classList.remove('oculto');
+}
+
+async function buscar() {
+  var q = $('#q').value.trim();
+  var cont = $('#resultados');
+  if (!q) return;
+  cont.innerHTML = '<p class="muted">Buscando…</p>';
+  try {
+    var r = await api('buscarEmpleado', { q: q });
+    if (!r.length) { cont.innerHTML = '<p class="muted">No se encontró ningún empleado activo con "' + esc(q) + '".</p>'; return; }
+    cont.innerHTML = '';
+    r.forEach(function (emp) {
+      var b = document.createElement('button');
+      b.className = 'resultado';
+      b.innerHTML = '<b>' + esc(emp.nombre) + '</b> <span class="muted">legajo ' + esc(emp.legajo) + '</span>';
+      b.onclick = function () { elegir(emp); };
+      cont.appendChild(b);
+    });
+    if (r.length === 1 && /^\d+$/.test(q)) elegir(r[0]);
+  } catch (e) { cont.innerHTML = '<p class="aviso error">' + esc(e.message) + '</p>'; }
+}
+
+function elegir(emp) {
+  empleado = emp;
+  $('#empNombre').textContent = emp.nombre + ' (legajo ' + emp.legajo + ')';
+  $('#empElegido').classList.remove('oculto');
+  $('#buscador').classList.add('oculto');
+  $('#sugerido').classList.add('oculto');
+  $('#resultados').innerHTML = '';
+  actualizarResumen();
+}
+
+function pintarInsumos() {
+  var f = normalizar($('#filtro').value);
+  var cont = $('#insumos');
+  cont.innerHTML = '';
+  area.insumos.forEach(function (ins) {
+    if (f && normalizar(ins).indexOf(f) < 0) return;
+    var c = cantidades[ins] || 0;
+    var d = document.createElement('div');
+    d.className = 'insumo' + (c ? ' con' : '');
+    d.innerHTML = '<span class="n">' + esc(ins) + '</span>' +
+      '<div class="stepper"><button aria-label="menos">−</button><span class="c">' + c + '</span><button aria-label="más">+</button></div>';
+    var bs = d.querySelectorAll('button');
+    bs[0].onclick = function () { cambiar(ins, -1); };
+    bs[1].onclick = function () { cambiar(ins, 1); };
+    cont.appendChild(d);
+  });
+}
+
+function cambiar(ins, delta) {
+  cantidades[ins] = Math.max(0, Math.min(99, (cantidades[ins] || 0) + delta));
+  pintarInsumos();
+  actualizarResumen();
+}
+
+function itemsElegidos() {
+  return Object.keys(cantidades).filter(function (k) { return cantidades[k] > 0; })
+    .map(function (k) { return { insumo: k, cantidad: cantidades[k] }; });
+}
+
+function actualizarResumen() {
+  var it = itemsElegidos();
+  var u = it.reduce(function (s, x) { return s + x.cantidad; }, 0);
+  $('#resumen').textContent = it.length ? it.length + ' insumo(s), ' + u + ' unidad(es)' + (empleado ? ' para ' + empleado.nombre : '') : '';
+}
+
+async function enviar() {
+  var it = itemsElegidos();
+  if (!empleado) { toast('Elegí para quién es el pedido (paso 1).', 'error'); $('#q').focus(); return; }
+  if (!it.length) { toast('Elegí al menos un insumo (paso 2).', 'error'); return; }
+  var b = $('#btnEnviar');
+  b.disabled = true; b.textContent = 'Enviando…';
+  try {
+    var r = await api('crearPedido', { area: codigo, legajo: empleado.legajo, items: it, obs: $('#obs').value, nonce: nonce });
+    try { localStorage.setItem('insumos_ultimo_empleado', JSON.stringify(empleado)); } catch (e) {}
+    $('#listoTitulo').textContent = 'Pedido #' + r.id + ' enviado';
+    $('#listoTexto').innerHTML = 'Para <b>' + esc(r.empleado) + '</b>. El depósito ya lo recibió y te lo va a preparar.';
+    $('#form').classList.add('oculto');
+    $('#listo').classList.remove('oculto');
+    window.scrollTo(0, 0);
+  } catch (e) {
+    toast(e.message, 'error');
+  } finally {
+    b.disabled = false; b.textContent = 'Enviar pedido';
+  }
+}
+
+function otro() {
+  cantidades = {}; nonce = nuevoNonce(); $('#obs').value = '';
+  empleado = null;
+  $('#empElegido').classList.add('oculto');
+  $('#buscador').classList.remove('oculto');
+  $('#q').value = '';
+  $('#listo').classList.add('oculto');
+  $('#form').classList.remove('oculto');
+  pintarInsumos(); actualizarResumen();
+}
+
+$('#btnBuscar').onclick = buscar;
+$('#q').addEventListener('keydown', function (e) { if (e.key === 'Enter') buscar(); });
+$('#btnCambiarEmp').onclick = function () {
+  empleado = null; $('#empElegido').classList.add('oculto'); $('#buscador').classList.remove('oculto'); $('#q').focus(); actualizarResumen();
+};
+$('#filtro').addEventListener('input', pintarInsumos);
+$('#btnEnviar').onclick = enviar;
+$('#btnOtro').onclick = otro;
+iniciar();
+</script>
+</body>
+</html>

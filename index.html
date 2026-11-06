@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pedidos de insumos</title>
+<link rel="stylesheet" href="estilos.css">
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+</head>
+<body>
+
+<!-- ================= LOGIN ================= -->
+<div id="login" class="oculto">
+  <main class="angosto" style="padding-top:8vh">
+    <div class="card">
+      <div style="text-align:center;margin-bottom:1rem">
+        <img src="logo.png" alt="" style="height:56px" onerror="this.remove()">
+        <h1 style="margin-top:.5rem">Pedidos de insumos</h1>
+      </div>
+      <div id="loginMsg" class="aviso error oculto"></div>
+      <label for="lUsuario">Usuario</label>
+      <input id="lUsuario" autocomplete="username" autocapitalize="none">
+      <label for="lClave">Contraseña</label>
+      <input id="lClave" type="password" autocomplete="current-password">
+      <button class="btn grande" id="btnLogin" style="margin-top:1rem">Ingresar</button>
+    </div>
+  </main>
+</div>
+
+<!-- ================= APP ================= -->
+<div id="app" class="oculto">
+  <div class="top">
+    <img class="logo" src="logo.png" alt="" onerror="this.remove()">
+    <div class="titulo">Pedidos de insumos</div>
+    <div class="espacio"></div>
+    <div class="usuario"><b id="yoNombre"></b><br><span id="yoRol"></span></div>
+    <button class="btn sec chico" id="btnClave">Clave</button>
+    <button class="btn sec chico" id="btnSalir">Salir</button>
+  </div>
+  <nav class="tabs" id="tabs"></nav>
+
+  <main>
+    <!-- ---------- PEDIDOS ---------- -->
+    <section id="v-pedidos" class="vista oculto">
+      <div class="fila" style="margin-bottom:.8rem">
+        <h2 style="margin:0">Pedidos pendientes</h2>
+        <span class="espacio"></span>
+        <span class="muted" id="actualizado"></span>
+        <button class="btn" id="btnAvisos">🔔 Activar avisos</button>
+      </div>
+      <div id="avisoAvisos" class="aviso alerta">Tocá <b>Activar avisos</b> para que suene y aparezca una notificación cuando llegue un pedido. Dejá esta pestaña abierta.</div>
+      <div id="listaPend" class="pedidos"></div>
+
+      <h2 style="margin-top:1.5rem">Últimos cerrados</h2>
+      <div class="card tabla-wrap" style="padding:0">
+        <table>
+          <thead><tr><th>#</th><th>Fecha</th><th>Área</th><th>Empleado</th><th>Insumos</th><th>Estado</th><th>Cerrado por</th></tr></thead>
+          <tbody id="tablaHist"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ---------- ESTADÍSTICAS ---------- -->
+    <section id="v-estadisticas" class="vista oculto">
+      <div class="card">
+        <div class="fila">
+          <div><label>Desde</label><input type="date" id="eDesde"></div>
+          <div><label>Hasta</label><input type="date" id="eHasta"></div>
+          <div style="flex:1"><label>Área</label><select id="eArea"><option value="">Todas</option></select></div>
+          <div style="flex:2"><label>Buscar empleado, legajo o insumo</label><input id="eTexto" placeholder="Ej.: Pérez, 1234, guantes"></div>
+          <div><label>&nbsp;</label><button class="btn" id="btnStats">Actualizar</button></div>
+        </div>
+        <div class="fila" style="margin-top:.6rem">
+          <span class="muted">Rápido:</span>
+          <button class="link" data-rango="0">Hoy</button>
+          <button class="link" data-rango="7">7 días</button>
+          <button class="link" data-rango="30">30 días</button>
+          <button class="link" data-rango="mes">Este mes</button>
+          <button class="link" data-rango="365">Último año</button>
+        </div>
+      </div>
+      <div id="statsCuerpo"><p class="vacio">Elegí el período y tocá Actualizar.</p></div>
+    </section>
+
+    <!-- ---------- ÁREAS Y QR ---------- -->
+    <section id="v-areas" class="vista oculto">
+      <div class="grid">
+        <div class="card">
+          <h2>Nueva área / sector</h2>
+          <div class="fila">
+            <input id="aNombre" placeholder="Ej.: Desposte, Faena, Mantenimiento">
+            <button class="btn" id="btnCrearArea">Crear</button>
+          </div>
+          <p class="muted">Cada área tiene su propio QR y su matriz de insumos (lo que se puede pedir desde ese sector).</p>
+        </div>
+        <div class="card">
+          <h2>Carteles</h2>
+          <p class="muted">Imprimí los QR de todas las áreas activas, uno por hoja, para pegar en cada sector.</p>
+          <button class="btn sec" id="btnImprimirTodos">🖨 Imprimir todos los QR</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Áreas</h2>
+        <div id="listaAreas"><p class="muted">Cargando…</p></div>
+      </div>
+    </section>
+
+    <!-- ---------- EMPLEADOS ---------- -->
+    <section id="v-empleados" class="vista oculto">
+      <div class="grid">
+        <div class="card">
+          <h2>Alta de empleado</h2>
+          <label>Legajo</label><input id="emLegajo" inputmode="numeric">
+          <label>Nombre y apellido</label><input id="emNombre">
+          <button class="btn" id="btnAltaEmp" style="margin-top:.8rem">Guardar</button>
+        </div>
+        <div class="card">
+          <h2>Importar nómina</h2>
+          <p class="muted" style="margin-top:0">Copiá desde Excel las columnas <b>Legajo</b> y <b>Nombre y apellido</b> (si viene el DNI también, se ignora) y pegalas acá. Los legajos que ya existen se actualizan; los nuevos se dan de alta.</p>
+          <textarea id="emImport" placeholder="1234&#9;PEREZ JUAN&#10;1235&#9;GOMEZ MARIA"></textarea>
+          <div class="fila" style="margin-top:.6rem">
+            <button class="btn" id="btnImportar">Importar</button>
+            <span class="muted" id="emImportInfo"></span>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="fila">
+          <h2 style="margin:0">Nómina</h2>
+          <span class="muted" id="emCuenta"></span>
+          <span class="espacio"></span>
+          <input id="emBuscar" placeholder="Buscar por legajo o nombre" style="max-width:300px">
+          <label class="fila" style="margin:0;color:var(--tinta)"><input type="checkbox" id="emVerBajas" style="width:auto"> ver bajas</label>
+        </div>
+        <div class="tabla-wrap" style="margin-top:.6rem">
+          <table>
+            <thead><tr><th>Legajo</th><th>Nombre y apellido</th><th>Estado</th><th></th></tr></thead>
+            <tbody id="tablaEmp"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- USUARIOS ---------- -->
+    <section id="v-usuarios" class="vista oculto">
+      <div class="grid">
+        <div class="card">
+          <h2 id="uTitulo">Nuevo usuario</h2>
+          <label>Usuario (para ingresar)</label><input id="uUsuario" autocapitalize="none" placeholder="ej.: belen">
+          <label>Nombre</label><input id="uNombre" placeholder="ej.: Belén (Seguridad e Higiene)">
+          <label>Rol</label>
+          <select id="uRol">
+            <option value="deposito">Depósito: ve y cierra pedidos</option>
+            <option value="supervisor">Supervisor / Seguridad e Higiene: + estadísticas, áreas, QR, matriz, empleados</option>
+            <option value="admin">Administrador: todo, incluidos usuarios</option>
+          </select>
+          <label>Contraseña <span id="uClaveAyuda" class="muted"></span></label><input id="uClave" type="text" autocomplete="off">
+          <div class="fila" style="margin-top:.8rem">
+            <button class="btn" id="btnGuardarUsuario">Guardar</button>
+            <button class="btn sec oculto" id="btnCancelarUsuario">Cancelar</button>
+          </div>
+        </div>
+        <div class="card">
+          <h2>Usuarios</h2>
+          <div class="tabla-wrap">
+            <table>
+              <thead><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Estado</th><th></th></tr></thead>
+              <tbody id="tablaUsu"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="comun.js"></script>
+<script>
+// =============================================================
+var NIVEL = { deposito: 1, supervisor: 2, admin: 3 };
+var NOMBRE_ROL = { deposito: 'Depósito', supervisor: 'Supervisor / SeH', admin: 'Administrador' };
+var TABS = [
+  { id: 'pedidos', txt: 'Pedidos', nivel: 1 },
+  { id: 'estadisticas', txt: 'Estadísticas', nivel: 2 },
+  { id: 'areas', txt: 'Áreas y QR', nivel: 2 },
+  { id: 'empleados', txt: 'Empleados', nivel: 2 },
+  { id: 'usuarios', txt: 'Usuarios', nivel: 3 }
+];
+var yo = null, timerPoll = null;
+
+// ---------------- Sesión ----------------
+async function login() {
+  var b = $('#btnLogin');
+  b.disabled = true;
+  $('#loginMsg').classList.add('oculto');
+  try {
+    var r = await api('login', { usuario: $('#lUsuario').value, clave: $('#lClave').value });
+    sesion.guardar({ token: r.token, usuario: r.usuario });
+    $('#lClave').value = '';
+    entrar(r.usuario);
+  } catch (e) {
+    $('#loginMsg').textContent = e.message; $('#loginMsg').classList.remove('oculto');
+  } finally { b.disabled = false; }
+}
+
+function mostrarLogin(msg) {
+  clearInterval(timerPoll);
+  $('#app').classList.add('oculto');
+  $('#login').classList.remove('oculto');
+  if (msg) { $('#loginMsg').textContent = msg; $('#loginMsg').classList.remove('oculto'); }
+  $('#lUsuario').focus();
+}
+
+function salir() { sesion.borrar(); yo = null; document.title = 'Pedidos de insumos'; mostrarLogin(); }
+
+function manejarError(e) {
+  if (e.sesionVencida) { sesion.borrar(); mostrarLogin(e.message); return; }
+  toast(e.message, 'error');
+}
+
+function entrar(u) {
+  yo = u;
+  $('#login').classList.add('oculto');
+  $('#app').classList.remove('oculto');
+  $('#yoNombre').textContent = u.nombre;
+  $('#yoRol').textContent = NOMBRE_ROL[u.rol] || u.rol;
+  var nav = $('#tabs');
+  nav.innerHTML = '';
+  TABS.filter(function (t) { return NIVEL[u.rol] >= t.nivel; }).forEach(function (t) {
+    var b = document.createElement('button');
+    b.dataset.tab = t.id;
+    b.innerHTML = esc(t.txt) + (t.id === 'pedidos' ? '<span class="badge oculto" id="badgePend"></span>' : '');
+    b.onclick = function () { irA(t.id); };
+    nav.appendChild(b);
+  });
+  var ult = null;
+  try { ult = localStorage.getItem('insumos_tab_' + u.usuario); } catch (e) {}
+  var defecto = u.rol === 'deposito' ? 'pedidos' : 'estadisticas';
+  irA(ult && $('[data-tab="' + ult + '"]') ? ult : defecto);
+  cargarPendientes();
+  clearInterval(timerPoll);
+  timerPoll = setInterval(cargarPendientes, 15000);
+}
+
+function irA(id) {
+  $$('.vista').forEach(function (v) { v.classList.add('oculto'); });
+  $('#v-' + id).classList.remove('oculto');
+  $$('#tabs button').forEach(function (b) { b.classList.toggle('activa', b.dataset.tab === id); });
+  try { localStorage.setItem('insumos_tab_' + yo.usuario, id); } catch (e) {}
+  if (id === 'pedidos') cargarHistorial();
+  if (id === 'estadisticas' && !statsCargadas) cargarStats();
+  if (id === 'areas') cargarAreas();
+  if (id === 'empleados') cargarEmpleados();
+  if (id === 'usuarios') cargarUsuarios();
+}
+
+function modal(html) {
+  var f = document.createElement('div');
+  f.className = 'modal-fondo';
+  f.innerHTML = '<div class="modal">' + html + '</div>';
+  f.addEventListener('click', function (e) { if (e.target === f) f.remove(); });
+  document.body.appendChild(f);
+  $$('[data-cerrar]', f).forEach(function (b) { b.onclick = function () { f.remove(); }; });
+  return f;
+}
+
+async function conBoton(btn, fn) {
+  btn.disabled = true;
+  try { return await fn(); } catch (e) { manejarError(e); } finally { btn.disabled = false; }
+}
+
+function cambiarClave() {
+  var m = modal('<h2>Cambiar mi contraseña</h2>' +
+    '<label>Contraseña actual</label><input type="password" id="cActual">' +
+    '<label>Contraseña nueva (mínimo 6)</label><input type="password" id="cNueva">' +
+    '<label>Repetir nueva</label><input type="password" id="cNueva2">' +
+    '<div class="fila" style="margin-top:1rem"><button class="btn" id="cOk">Guardar</button><button class="btn sec" data-cerrar>Cancelar</button></div>');
+  $('#cOk', m).onclick = function () {
+    if ($('#cNueva', m).value !== $('#cNueva2', m).value) return toast('Las contraseñas nuevas no coinciden.', 'error');
+    conBoton(this, async function () {
+      await api('cambiarClave', { actual: $('#cActual', m).value, nueva: $('#cNueva', m).value });
+      m.remove(); toast('Contraseña actualizada.', 'ok');
+    });
+  };
+}
+
+// =============================================================
+// PEDIDOS (depósito)
+// =============================================================
+var idsConocidos = null, audioCtx = null, avisosOn = false;
+
+async function cargarPendientes() {
+  if (!yo) return;
+  var lista;
+  try { lista = await api('pendientes'); } catch (e) {
+    if (e.sesionVencida) return manejarError(e);
+    $('#actualizado').textContent = '⚠ sin conexión, reintentando…';
+    return;
+  }
+  $('#actualizado').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  var nuevos = [];
+  if (idsConocidos) nuevos = lista.filter(function (p) { return !idsConocidos[p.id]; });
+  idsConocidos = {};
+  lista.forEach(function (p) { idsConocidos[p.id] = true; });
+  pintarPendientes(lista, nuevos);
+  if (nuevos.length) avisar(nuevos);
+  var bd = $('#badgePend');
+  if (bd) { bd.textContent = lista.length; bd.classList.toggle('oculto', !lista.length); }
+  document.title = (lista.length ? '(' + lista.length + ') ' : '') + 'Pedidos de insumos';
+}
+
+function pintarPendientes(lista, nuevos) {
+  var cont = $('#listaPend');
+  // conservar lo que el depósito ya escribió en las cantidades
+  var tipeado = {};
+  $$('input[data-ins]', cont).forEach(function (i) { tipeado[i.dataset.pid + '|' + i.dataset.ins] = i.value; });
+  var esNuevo = {};
+  nuevos.forEach(function (p) { esNuevo[p.id] = true; });
+
+  if (!lista.length) { cont.innerHTML = '<div class="card vacio" style="grid-column:1/-1">No hay pedidos pendientes. 🎉</div>'; return; }
+  lista.sort(function (a, b) { return a.id - b.id; });
+  cont.innerHTML = lista.map(function (p) {
+    return '<div class="pedido' + (esNuevo[p.id] ? ' nuevo' : '') + '" data-id="' + p.id + '">' +
+      '<div class="cab"><span class="num">#' + p.id + '</span><span class="muted" title="' + esc(fechaHora(p.fecha)) + '">' + esc(haceCuanto(p.fecha)) + '</span></div>' +
+      '<div class="muted">' + esc(p.area) + '</div>' +
+      '<div class="emp">' + esc(p.empleado) + ' <span class="muted">· legajo ' + esc(p.legajo) + '</span></div>' +
+      '<ul>' + p.items.map(function (it) {
+        var k = p.id + '|' + it.insumo;
+        var val = tipeado[k] !== undefined ? tipeado[k] : it.pedida;
+        return '<li><span>' + esc(it.insumo) + '</span><span class="muted">pidió <b>' + it.pedida + '</b> · entrega ' +
+          '<input type="number" min="0" max="999" data-pid="' + p.id + '" data-ins="' + esc(it.insumo) + '" value="' + esc(val) + '"></span></li>';
+      }).join('') + '</ul>' +
+      (p.obs ? '<div class="obs">📝 ' + esc(p.obs) + '</div>' : '') +
+      '<div class="fila"><button class="btn ok" data-accion="entregar">✔ Entregado</button><button class="btn sec" data-accion="rechazar">Rechazar</button></div>' +
+      '</div>';
+  }).join('');
+}
+
+$('#listaPend').addEventListener('click', function (e) {
+  var b = e.target.closest('button[data-accion]');
+  if (!b) return;
+  var card = b.closest('.pedido');
+  var id = Number(card.dataset.id);
+  if (b.dataset.accion === 'entregar') {
+    var entregas = {}, total = 0;
+    $$('input[data-ins]', card).forEach(function (i) { entregas[i.dataset.ins] = i.value; total += Number(i.value) || 0; });
+    if (!total) return toast('Todas las cantidades están en 0. Si no se entrega nada, usá Rechazar.', 'error');
+    conBoton(b, async function () {
+      await api('cerrarPedido', { id: id, estado: 'Entregado', entregas: entregas });
+      toast('Pedido #' + id + ' entregado.', 'ok');
+      await cargarPendientes(); cargarHistorial();
+    });
+  } else {
+    var motivo = window.prompt('Motivo del rechazo del pedido #' + id + ' (ej.: sin stock):');
+    if (!motivo || !motivo.trim()) return;
+    conBoton(b, async function () {
+      await api('cerrarPedido', { id: id, estado: 'Rechazado', obs: motivo });
+      toast('Pedido #' + id + ' rechazado.');
+      await cargarPendientes(); cargarHistorial();
+    });
+  }
+});
+
+async function cargarHistorial() {
+  try {
+    var h = await api('historial', { n: 30 });
+    $('#tablaHist').innerHTML = h.length ? h.map(function (p) {
+      return '<tr><td>' + p.id + '</td><td>' + esc(fechaHora(p.fecha)) + '</td><td>' + esc(p.area) + '</td><td>' + esc(p.empleado) +
+        ' <span class="muted">(' + esc(p.legajo) + ')</span></td><td>' + p.items.map(function (it) {
+          return esc(it.insumo) + ' × ' + (it.entregada === null ? it.pedida : it.entregada) + (it.entregada !== null && it.entregada !== it.pedida && p.estado === 'Entregado' ? ' <span class="muted">(pidió ' + it.pedida + ')</span>' : '');
+        }).join('<br>') + '</td><td><span class="estado ' + esc(p.estado) + '">' + esc(p.estado) + '</span>' +
+        (p.obsCierre ? '<div class="muted">' + esc(p.obsCierre) + '</div>' : '') + '</td><td>' + esc(p.cerradoPor) +
+        '<div class="muted">' + esc(fechaHora(p.fechaCierre)) + '</div></td></tr>';
+    }).join('') : '<tr><td colspan="7" class="muted">Todavía no hay pedidos cerrados.</td></tr>';
+  } catch (e) { manejarError(e); }
+}
+
+function activarAvisos() {
+  try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); audioCtx.resume(); } catch (e) {}
+  if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
+  avisosOn = true;
+  $('#btnAvisos').textContent = '🔔 Avisos activos (probar)';
+  $('#btnAvisos').classList.add('sec');
+  $('#avisoAvisos').classList.add('oculto');
+  sonar();
+}
+
+function sonar() {
+  if (!audioCtx) return;
+  [0, 0.25, 0.5].forEach(function (t, i) {
+    var o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.frequency.value = i === 2 ? 1046 : 784;
+    o.connect(g); g.connect(audioCtx.destination);
+    var t0 = audioCtx.currentTime + t;
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.4, t0 + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.22);
+    o.start(t0); o.stop(t0 + 0.25);
+  });
+}
+
+function avisar(nuevos) {
+  if (avisosOn) sonar();
+  if ('Notification' in window && Notification.permission === 'granted') {
+    nuevos.forEach(function (p) {
+      try {
+        var n = new Notification('Nuevo pedido #' + p.id + ' - ' + p.area, {
+          body: p.empleado + ': ' + p.items.map(function (i) { return i.insumo + ' × ' + i.pedida; }).join(', '),
+          tag: 'pedido-' + p.id
+        });
+        n.onclick = function () { window.focus(); irA('pedidos'); n.close(); };
+      } catch (e) {}
+    });
+  }
+}
+
+// =============================================================
+// ESTADÍSTICAS
+// =============================================================
+var statsDatos = [], statsCargadas = false;
+
+function setRango(r) {
+  var hoy = new Date(), d = new Date();
+  if (r === 'mes') d = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+  else d.setDate(hoy.getDate() - Number(r));
+  $('#eDesde').value = ymd(d); $('#eHasta').value = ymd(hoy);
+}
+
+async function cargarStats() {
+  if (!$('#eDesde').value) setRango(30);
+  await conBoton($('#btnStats'), async function () {
+    statsDatos = await api('datos', { desde: $('#eDesde').value, hasta: $('#eHasta').value });
+    statsCargadas = true;
+    var areas = {};
+    statsDatos.forEach(function (p) { areas[p.area] = true; });
+    var sel = $('#eArea'), actual = sel.value;
+    sel.innerHTML = '<option value="">Todas</option>' + Object.keys(areas).sort().map(function (a) { return '<option>' + esc(a) + '</option>'; }).join('');
+    sel.value = areas[actual] ? actual : '';
+    pintarStats();
+  });
+}
+
+function filasStats() {
+  var area = $('#eArea').value, t = normalizar($('#eTexto').value);
+  var filas = [];
+  statsDatos.forEach(function (p) {
+    if (area && p.area !== area) return;
+    p.items.forEach(function (it) {
+      var f = { p: p, insumo: it.insumo, pedida: it.pedida, entregada: it.entregada || 0 };
+      if (t && normalizar(p.empleado + ' ' + p.legajo + ' ' + it.insumo).indexOf(t) < 0) return;
+      filas.push(f);
+    });
+  });
+  return filas;
+}
+
+function contar(filas, clave, valor) {
+  var m = {};
+  filas.forEach(function (f) { var k = clave(f); m[k] = (m[k] || 0) + valor(f); });
+  return Object.keys(m).map(function (k) { return [k, m[k]]; }).filter(function (x) { return x[1] > 0; })
+    .sort(function (a, b) { return b[1] - a[1]; });
+}
+
+function barras(lista, max) {
+  lista = lista.slice(0, max || 10);
+  if (!lista.length) return '<p class="muted">Sin datos.</p>';
+  var tope = lista[0][1];
+  return '<div class="barras">' + lista.map(function (x) {
+    return '<div class="b"><span class="n" title="' + esc(x[0]) + '">' + esc(x[0]) + '</span><span class="t"><span style="width:' + Math.max(2, x[1] / tope * 100) + '%"></span></span><span class="c">' + x[1] + '</span></div>';
+  }).join('') + '</div>';
+}
+
+function pintarStats() {
+  var filas = filasStats();
+  var pedidos = {};
+  filas.forEach(function (f) { pedidos[f.p.id] = f.p; });
+  var ps = Object.keys(pedidos).map(function (k) { return pedidos[k]; });
+  var ent = ps.filter(function (p) { return p.estado === 'Entregado'; });
+  var unidades = filas.reduce(function (s, f) { return s + (f.p.estado === 'Entregado' ? f.entregada : 0); }, 0);
+  var tiempos = ent.filter(function (p) { return p.fechaCierre; }).map(function (p) { return (new Date(p.fechaCierre) - new Date(p.fecha)) / 60000; });
+  var prom = tiempos.length ? tiempos.reduce(function (a, b) { return a + b; }, 0) / tiempos.length : null;
+  var promTxt = prom === null ? '—' : prom < 60 ? Math.round(prom) + ' min' : (prom / 60).toFixed(1) + ' h';
+  var empleados = {};
+  ent.forEach(function (p) { empleados[p.legajo] = true; });
+
+  var entregadas = filas.filter(function (f) { return f.p.estado === 'Entregado'; });
+  var html = '<div class="kpis">' +
+    kpi(ps.length, 'Pedidos') +
+    kpi(ps.filter(function (p) { return p.estado === 'Pendiente'; }).length, 'Pendientes') +
+    kpi(ent.length, 'Entregados') +
+    kpi(ps.filter(function (p) { return p.estado === 'Rechazado'; }).length, 'Rechazados') +
+    kpi(unidades, 'Unidades entregadas') +
+    kpi(Object.keys(empleados).length, 'Empleados que recibieron') +
+    kpi(promTxt, 'Tiempo promedio de entrega') +
+    '</div>';
+
+  html += '<div class="grid">' +
+    '<div class="card"><h3>Insumos más entregados (unidades)</h3>' + barras(contar(entregadas, function (f) { return f.insumo; }, function (f) { return f.entregada; }), 12) + '</div>' +
+    '<div class="card"><h3>Empleados que más recibieron (unidades)</h3>' + barras(contar(entregadas, function (f) { return f.p.empleado + ' (' + f.p.legajo + ')'; }, function (f) { return f.entregada; }), 12) + '</div>' +
+    '<div class="card"><h3>Pedidos por área</h3>' + barras(contar(ps.map(function (p) { return { p: p }; }), function (f) { return f.p.area; }, function () { return 1; }), 12) + '</div>' +
+    '<div class="card"><h3>Pedidos por día</h3>' + columnasPorDia(ps) + '</div>' +
+    '</div>';
+
+  var MAXF = 500;
+  var orden = filas.slice().sort(function (a, b) { return new Date(b.p.fecha) - new Date(a.p.fecha); });
+  html += '<div class="card"><div class="fila"><h3 style="margin:0">Detalle: qué se pidió y a quién se le entregó</h3><span class="muted">' + filas.length + ' renglones</span><span class="espacio"></span>' +
+    '<button class="btn sec chico" id="btnCsv">⬇ Descargar Excel (CSV)</button></div>' +
+    '<div class="tabla-wrap" style="max-height:520px;margin-top:.6rem"><table><thead><tr><th>Fecha</th><th>#</th><th>Área</th><th>Legajo</th><th>Empleado</th><th>Insumo</th><th class="num">Pedido</th><th class="num">Entregado</th><th>Estado</th><th>Entregó</th></tr></thead><tbody>' +
+    (orden.length ? orden.slice(0, MAXF).map(function (f) {
+      return '<tr><td>' + esc(fechaHora(f.p.fecha)) + '</td><td>' + f.p.id + '</td><td>' + esc(f.p.area) + '</td><td>' + esc(f.p.legajo) + '</td><td>' + esc(f.p.empleado) +
+        '</td><td>' + esc(f.insumo) + '</td><td class="num">' + f.pedida + '</td><td class="num">' + (f.p.estado === 'Pendiente' ? '—' : f.entregada) +
+        '</td><td><span class="estado ' + esc(f.p.estado) + '">' + esc(f.p.estado) + '</span></td><td>' + esc(f.p.cerradoPor) + '</td></tr>';
+    }).join('') : '<tr><td colspan="10" class="muted">Sin datos para este filtro.</td></tr>') +
+    '</tbody></table></div>' + (orden.length > MAXF ? '<p class="muted">Se muestran los ' + MAXF + ' más recientes; el CSV trae todo.</p>' : '') + '</div>';
+
+  $('#statsCuerpo').innerHTML = html;
+  $('#btnCsv').onclick = function () { descargarCsv(orden); };
+}
+
+function kpi(v, l) { return '<div class="kpi"><div class="v">' + esc(v) + '</div><div class="l">' + esc(l) + '</div></div>'; }
+
+function columnasPorDia(ps) {
+  var desde = new Date($('#eDesde').value + 'T00:00'), hasta = new Date($('#eHasta').value + 'T00:00');
+  var dias = Math.round((hasta - desde) / 86400000) + 1;
+  if (!(dias > 0)) return '<p class="muted">Sin datos.</p>';
+  var porSemana = dias > 62;
+  var cubetas = [], idx = {};
+  for (var d = new Date(desde); d <= hasta; d.setDate(d.getDate() + (porSemana ? 7 : 1))) {
+    idx[cubetas.length] = true; cubetas.push({ ini: new Date(d), n: 0 });
+  }
+  ps.forEach(function (p) {
+    var f = new Date(p.fecha); f.setHours(0, 0, 0, 0);
+    var i = Math.floor(Math.round((f - desde) / 86400000) / (porSemana ? 7 : 1));
+    if (cubetas[i]) cubetas[i].n++;
+  });
+  var max = Math.max.apply(null, cubetas.map(function (c) { return c.n; })) || 1;
+  var fmt = function (d) { return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }); };
+  return '<div class="columnas">' + cubetas.map(function (c) {
+    return '<div class="col" style="height:' + (c.n / max * 100) + '%" data-t="' + (porSemana ? 'Semana ' : '') + fmt(c.ini) + ': ' + c.n + '"></div>';
+  }).join('') + '</div><div class="ejes"><span>' + fmt(desde) + '</span><span>' + (porSemana ? 'por semana' : 'por día') + '</span><span>' + fmt(hasta) + '</span></div>';
+}
+
+function descargarCsv(filas) {
+  var enc = ['Fecha', 'Pedido', 'Area', 'Legajo', 'Empleado', 'Insumo', 'Cantidad pedida', 'Cantidad entregada', 'Estado', 'Entregado por', 'Fecha cierre', 'Observacion', 'Obs cierre'];
+  var q = function (v) { v = String(v === null || v === undefined ? '' : v); return /[;"\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  var lineas = [enc.join(';')].concat(filas.map(function (f) {
+    return [fechaHora(f.p.fecha), f.p.id, f.p.area, f.p.legajo, f.p.empleado, f.insumo, f.pedida, f.p.estado === 'Pendiente' ? '' : f.entregada,
+      f.p.estado, f.p.cerradoPor, fechaHora(f.p.fechaCierre), f.p.obs, f.p.obsCierre].map(q).join(';');
+  }));
+  var blob = new Blob(['﻿' + lineas.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'insumos_' + $('#eDesde').value + '_a_' + $('#eHasta').value + '.csv';
+  a.click();
+  setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+}
+
+// =============================================================
+// ÁREAS, QR Y MATRIZ
+// =============================================================
+var areas = [];
+
+async function cargarAreas() {
+  try { areas = await api('areas'); pintarAreas(); } catch (e) { manejarError(e); }
+}
+
+function pintarAreas() {
+  var cont = $('#listaAreas');
+  if (!areas.length) { cont.innerHTML = '<p class="muted">Todavía no hay áreas. Creá la primera arriba.</p>'; return; }
+  cont.innerHTML = areas.map(function (a, i) {
+    return '<div class="area-item' + (a.activo ? '' : ' inactivo') + '">' +
+      '<span class="nom">' + esc(a.nombre) + (a.activo ? '' : ' <span class="estado Rechazado">deshabilitada</span>') +
+      '<div class="muted" style="font-weight:400">' + (a.insumos.length ? a.insumos.length + ' insumos: ' + esc(a.insumos.slice(0, 5).join(', ')) + (a.insumos.length > 5 ? '…' : '') : '⚠ sin insumos cargados') + '</div></span>' +
+      '<button class="btn chico" data-i="' + i + '" data-a="matriz">Matriz de insumos</button>' +
+      '<button class="btn sec chico" data-i="' + i + '" data-a="qr">Ver QR</button>' +
+      '<button class="btn sec chico" data-i="' + i + '" data-a="renombrar">Renombrar</button>' +
+      '<button class="btn sec chico" data-i="' + i + '" data-a="activo">' + (a.activo ? 'Deshabilitar' : 'Habilitar') + '</button>' +
+      '</div>';
+  }).join('');
+}
+
+$('#listaAreas').addEventListener('click', function (e) {
+  var b = e.target.closest('button[data-a]');
+  if (!b) return;
+  var a = areas[Number(b.dataset.i)];
+  if (b.dataset.a === 'matriz') editarMatriz(a);
+  if (b.dataset.a === 'qr') verQR(a);
+  if (b.dataset.a === 'renombrar') {
+    var n = window.prompt('Nuevo nombre para "' + a.nombre + '":', a.nombre);
+    if (n && n.trim() && n.trim() !== a.nombre) conBoton(b, async function () { areas = await api('guardarArea', { codigo: a.codigo, nombre: n.trim() }); pintarAreas(); });
+  }
+  if (b.dataset.a === 'activo') {
+    conBoton(b, async function () { areas = await api('guardarArea', { codigo: a.codigo, activo: !a.activo }); pintarAreas(); });
+  }
+});
+
+$('#btnCrearArea').onclick = function () {
+  var n = $('#aNombre').value.trim();
+  if (!n) return toast('Escribí el nombre del área.', 'error');
+  conBoton(this, async function () {
+    areas = await api('guardarArea', { nombre: n });
+    $('#aNombre').value = '';
+    pintarAreas();
+    toast('Área creada. Ahora cargale la matriz de insumos.', 'ok');
+    var nueva = areas.filter(function (a) { return a.nombre === n; })[0];
+    if (nueva) editarMatriz(nueva);
+  });
+};
+
+function editarMatriz(a) {
+  var otros = {};
+  areas.forEach(function (x) { x.insumos.forEach(function (s) { if (a.insumos.indexOf(s) < 0) otros[s] = true; }); });
+  var chips = Object.keys(otros).sort(function (x, y) { return x.localeCompare(y); });
+  var m = modal('<h2>Matriz de insumos: ' + esc(a.nombre) + '</h2>' +
+    '<p class="muted" style="margin-top:0">Un insumo por renglón, en el orden en que querés que aparezcan. Podés pegar una columna de Excel.</p>' +
+    '<textarea id="mTxt" style="min-height:220px">' + esc(a.insumos.join('\n')) + '</textarea>' +
+    (chips.length ? '<label>Insumos de otras áreas (tocá para agregar; usá el mismo nombre así las estadísticas los suman juntos):</label><div class="chips">' +
+      chips.map(function (s) { return '<button class="chip">' + esc(s) + '</button>'; }).join('') + '</div>' : '') +
+    '<div class="fila" style="margin-top:1rem"><button class="btn" id="mOk">Guardar matriz</button><button class="btn sec" data-cerrar>Cancelar</button></div>');
+  $$('.chip', m).forEach(function (c) {
+    c.onclick = function () {
+      var t = $('#mTxt', m);
+      t.value = (t.value.replace(/\s+$/, '') + '\n' + c.textContent).replace(/^\n/, '');
+      c.remove();
+    };
+  });
+  $('#mOk', m).onclick = function () {
+    var lista = $('#mTxt', m).value.split(/\r?\n/).map(function (s) { return s.split('\t')[0].trim(); }).filter(Boolean);
+    conBoton(this, async function () {
+      areas = await api('guardarMatriz', { codigo: a.codigo, insumos: lista });
+      pintarAreas(); m.remove(); toast('Matriz guardada (' + lista.length + ' insumos).', 'ok');
+    });
+  };
+}
+
+function urlQR(a) { return new URL('pedido.html?a=' + encodeURIComponent(a.codigo), location.href).href; }
+
+function qrSvg(texto) {
+  var q = qrcode(0, 'M'); q.addData(texto); q.make();
+  return q.createSvgTag({ cellSize: 6, margin: 2, scalable: true });
+}
+
+function verQR(a) {
+  var url = urlQR(a);
+  var m = modal('<div class="qr-box"><h2>' + esc(a.nombre) + '</h2>' + qrSvg(url) +
+    '<p class="muted" style="word-break:break-all">' + esc(url) + '</p></div>' +
+    '<div class="fila" style="justify-content:center">' +
+    '<button class="btn" id="qImp">🖨 Imprimir cartel</button>' +
+    '<button class="btn sec" id="qPng">⬇ Descargar imagen</button>' +
+    '<button class="btn sec" id="qCopiar">Copiar link</button>' +
+    '<a class="btn sec" href="' + esc(url) + '" target="_blank" rel="noopener">Abrir</a></div>' +
+    '<hr style="border:0;border-top:1px solid var(--linea);margin:1rem 0">' +
+    '<div class="fila"><span class="muted" style="flex:1">¿Se filtró o se perdió el cartel? Regenerá el QR: el viejo deja de funcionar y hay que reimprimir.</span>' +
+    '<button class="btn sec chico" id="qRegen">Regenerar QR</button><button class="btn sec chico" data-cerrar>Cerrar</button></div>');
+  $('#qImp', m).onclick = function () { imprimirCarteles([a]); };
+  $('#qPng', m).onclick = function () { descargarPngQR(a); };
+  $('#qCopiar', m).onclick = function () {
+    navigator.clipboard.writeText(url).then(function () { toast('Link copiado.', 'ok'); }, function () { window.prompt('Copiá el link:', url); });
+  };
+  $('#qRegen', m).onclick = function () {
+    if (!window.confirm('¿Regenerar el QR de ' + a.nombre + '? El cartel actual deja de funcionar.')) return;
+    conBoton(this, async function () {
+      areas = await api('guardarArea', { codigo: a.codigo, regenerarQR: true });
+      pintarAreas(); m.remove();
+      var nueva = areas.filter(function (x) { return x.nombre === a.nombre; })[0];
+      if (nueva) verQR(nueva);
+      toast('QR nuevo generado. Reimprimí el cartel.', 'ok');
+    });
+  };
+}
+
+function imprimirCarteles(lista) {
+  var w = window.open('', '_blank');
+  if (!w) return toast('El navegador bloqueó la ventana. Permití ventanas emergentes para este sitio.', 'error');
+  var logo = new URL('logo.png', location.href).href;
+  w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>QR insumos</title><style>' +
+    'body{font-family:system-ui,Arial,sans-serif;margin:0}.c{height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;page-break-after:always;padding:2rem;box-sizing:border-box}' +
+    '.c:last-child{page-break-after:auto}.t{font-size:28px;letter-spacing:.08em;color:#b8282f;font-weight:700}.a{font-size:54px;font-weight:800;margin:.2em 0 .4em}' +
+    '.q svg{width:13cm;height:13cm}.p{font-size:22px;margin-top:.6em}.logo{height:60px;margin-bottom:1rem}@page{size:A4;margin:1cm}</style></head><body>' +
+    lista.map(function (a) {
+      return '<div class="c"><img class="logo" src="' + logo + '" onerror="this.remove()"><div class="t">PEDIDO DE INSUMOS</div><div class="a">' + esc(a.nombre) + '</div>' +
+        '<div class="q">' + qrSvg(urlQR(a)) + '</div><div class="p">Escaneá con la cámara del celular,<br>elegí el empleado y los insumos.</div></div>';
+    }).join('') + '<script>window.onload=function(){setTimeout(function(){window.print()},400)}<\/script></body></html>');
+  w.document.close();
+}
+
+function descargarPngQR(a) {
+  var q = qrcode(0, 'M'); q.addData(urlQR(a)); q.make();
+  var n = q.getModuleCount(), cel = 14, marg = 4 * cel, lado = n * cel + marg * 2, alto = lado + 110;
+  var c = document.createElement('canvas'); c.width = lado; c.height = alto;
+  var x = c.getContext('2d');
+  x.fillStyle = '#fff'; x.fillRect(0, 0, lado, alto);
+  x.fillStyle = '#b8282f'; x.font = 'bold 26px system-ui, Arial'; x.textAlign = 'center';
+  x.fillText('PEDIDO DE INSUMOS', lado / 2, 40);
+  x.fillStyle = '#111'; x.font = 'bold 38px system-ui, Arial';
+  x.fillText(a.nombre, lado / 2, 88);
+  for (var r = 0; r < n; r++) for (var k = 0; k < n; k++) if (q.isDark(r, k)) x.fillRect(marg + k * cel, 110 + marg + r * cel, cel, cel);
+  var link = document.createElement('a');
+  link.href = c.toDataURL('image/png');
+  link.download = 'QR_' + a.nombre.replace(/[^\w\-]+/g, '_') + '.png';
+  link.click();
+}
+
+$('#btnImprimirTodos').onclick = async function () {
+  if (!areas.length) await cargarAreas();
+  var act = areas.filter(function (a) { return a.activo; });
+  if (!act.length) return toast('No hay áreas activas.', 'error');
+  imprimirCarteles(act);
+};
+
+// =============================================================
+// EMPLEADOS
+// =============================================================
+var empleados = [];
+
+async function cargarEmpleados() {
+  try { empleados = await api('empleados'); pintarEmpleados(); } catch (e) { manejarError(e); }
+}
+
+function pintarEmpleados() {
+  var t = normalizar($('#emBuscar').value), bajas = $('#emVerBajas').checked;
+  var activos = empleados.filter(function (e) { return e.activo; }).length;
+  $('#emCuenta').textContent = activos + ' activos' + (empleados.length - activos ? ', ' + (empleados.length - activos) + ' de baja' : '');
+  var lista = empleados.filter(function (e) {
+    return (bajas || e.activo) && (!t || normalizar(e.legajo + ' ' + e.nombre).indexOf(t) >= 0);
+  });
+  var MAX = 300;
+  $('#tablaEmp').innerHTML = lista.length ? lista.slice(0, MAX).map(function (e) {
+    return '<tr class="' + (e.activo ? '' : 'inactivo') + '"><td>' + esc(e.legajo) + '</td><td>' + esc(e.nombre) + '</td><td>' +
+      (e.activo ? '<span class="estado Entregado">Activo</span>' : '<span class="estado Rechazado">Baja</span>') + '</td><td style="text-align:right;white-space:nowrap">' +
+      '<button class="btn sec chico" data-leg="' + esc(e.legajo) + '" data-a="editar">Editar</button> ' +
+      '<button class="btn sec chico" data-leg="' + esc(e.legajo) + '" data-a="estado">' + (e.activo ? 'Dar de baja' : 'Reactivar') + '</button></td></tr>';
+  }).join('') + (lista.length > MAX ? '<tr><td colspan="4" class="muted">… y ' + (lista.length - MAX) + ' más. Usá el buscador.</td></tr>' : '')
+    : '<tr><td colspan="4" class="muted">' + (empleados.length ? 'Nada coincide con la búsqueda.' : 'Todavía no hay empleados. Importá la nómina.') + '</td></tr>';
+}
+
+$('#tablaEmp').addEventListener('click', function (ev) {
+  var b = ev.target.closest('button[data-a]');
+  if (!b) return;
+  var e = empleados.filter(function (x) { return x.legajo === b.dataset.leg; })[0];
+  if (b.dataset.a === 'editar') {
+    var n = window.prompt('Nombre y apellido del legajo ' + e.legajo + ':', e.nombre);
+    if (n && n.trim()) conBoton(b, async function () { empleados = await api('guardarEmpleado', { legajo: e.legajo, nombre: n.trim() }); pintarEmpleados(); });
+  } else {
+    if (e.activo && !window.confirm('¿Dar de baja a ' + e.nombre + '? No va a poder recibir pedidos (el historial se conserva).')) return;
+    conBoton(b, async function () { empleados = await api('guardarEmpleado', { legajo: e.legajo, activo: !e.activo }); pintarEmpleados(); });
+  }
+});
+
+$('#btnAltaEmp').onclick = function () {
+  var l = $('#emLegajo').value.trim(), n = $('#emNombre').value.trim();
+  if (!l || !n) return toast('Completá legajo y nombre.', 'error');
+  var existe = empleados.filter(function (e) { return e.legajo.replace(/^0+/, '') === l.replace(/^0+/, ''); })[0];
+  if (existe && !window.confirm('El legajo ' + l + ' ya existe (' + existe.nombre + '). ¿Actualizar el nombre y reactivarlo?')) return;
+  conBoton(this, async function () {
+    empleados = await api('guardarEmpleado', { legajo: l, nombre: n });
+    if (existe && !existe.activo) empleados = await api('guardarEmpleado', { legajo: l, activo: true });
+    $('#emLegajo').value = ''; $('#emNombre').value = '';
+    pintarEmpleados(); toast('Empleado guardado.', 'ok');
+  });
+};
+
+function parsearNomina(txt) {
+  return txt.split(/\r?\n/).map(function (lin) {
+    lin = lin.trim();
+    if (!lin) return null;
+    var p;
+    if (lin.indexOf('\t') >= 0) p = lin.split('\t');
+    else if (lin.indexOf(';') >= 0) p = lin.split(';');
+    else { var m = /^(\S+)\s+(.+)$/.exec(lin); p = m ? [m[1], m[2]] : [lin]; }
+    var leg = (p[0] || '').trim(), nom = (p[1] || '').trim().replace(/\s+/g, ' ');
+    if (!/\d/.test(leg) || !nom) return null;   // salta encabezados y renglones incompletos
+    return [leg, nom];
+  }).filter(Boolean);
+}
+
+$('#emImport').addEventListener('input', function () {
+  var f = parsearNomina(this.value);
+  $('#emImportInfo').textContent = f.length ? f.length + ' empleados detectados (ej.: ' + f[0][0] + ' - ' + f[0][1] + ')' : '';
+});
+
+$('#btnImportar').onclick = function () {
+  var f = parsearNomina($('#emImport').value);
+  if (!f.length) return toast('No detecté filas con legajo y nombre.', 'error');
+  conBoton(this, async function () {
+    var r = await api('importarEmpleados', { filas: f });
+    empleados = r.empleados; pintarEmpleados();
+    $('#emImport').value = ''; $('#emImportInfo').textContent = '';
+    toast('Importados: ' + r.nuevos + ' nuevos, ' + r.actualizados + ' actualizados.', 'ok');
+  });
+};
+
+$('#emBuscar').addEventListener('input', pintarEmpleados);
+$('#emVerBajas').addEventListener('change', pintarEmpleados);
+
+// =============================================================
+// USUARIOS
+// =============================================================
+var usuarios = [], editandoUsuario = null;
+
+async function cargarUsuarios() {
+  try { usuarios = await api('usuarios'); pintarUsuarios(); } catch (e) { manejarError(e); }
+}
+
+function pintarUsuarios() {
+  $('#tablaUsu').innerHTML = usuarios.map(function (u, i) {
+    return '<tr class="' + (u.activo ? '' : 'inactivo') + '"><td>' + esc(u.usuario) + '</td><td>' + esc(u.nombre) + '</td><td>' + esc(NOMBRE_ROL[u.rol] || u.rol) + '</td><td>' +
+      (u.activo ? '<span class="estado Entregado">Activo</span>' : '<span class="estado Rechazado">Inactivo</span>') + '</td><td style="white-space:nowrap">' +
+      '<button class="btn sec chico" data-i="' + i + '" data-a="editar">Editar</button> ' +
+      (u.usuario !== yo.usuario ? '<button class="btn sec chico" data-i="' + i + '" data-a="estado">' + (u.activo ? 'Desactivar' : 'Activar') + '</button>' : '') + '</td></tr>';
+  }).join('');
+  formUsuario(editandoUsuario);
+}
+
+function formUsuario(u) {
+  editandoUsuario = u;
+  $('#uTitulo').textContent = u ? 'Editar usuario' : 'Nuevo usuario';
+  $('#uUsuario').value = u ? u.usuario : '';
+  $('#uUsuario').disabled = !!u;
+  $('#uNombre').value = u ? u.nombre : '';
+  $('#uRol').value = u ? u.rol : 'deposito';
+  $('#uClave').value = '';
+  $('#uClaveAyuda').textContent = u ? '(dejala vacía para no cambiarla)' : '(mínimo 6)';
+  $('#btnCancelarUsuario').classList.toggle('oculto', !u);
+}
+
+$('#tablaUsu').addEventListener('click', function (e) {
+  var b = e.target.closest('button[data-a]');
+  if (!b) return;
+  var u = usuarios[Number(b.dataset.i)];
+  if (b.dataset.a === 'editar') { formUsuario(u); window.scrollTo(0, 0); }
+  else conBoton(b, async function () { usuarios = await api('guardarUsuario', { usuario: u.usuario, activo: !u.activo }); pintarUsuarios(); });
+});
+
+$('#btnGuardarUsuario').onclick = function () {
+  var datos = { usuario: $('#uUsuario').value, nombre: $('#uNombre').value, rol: $('#uRol').value };
+  if ($('#uClave').value) datos.clave = $('#uClave').value;
+  conBoton(this, async function () {
+    usuarios = await api('guardarUsuario', datos);
+    editandoUsuario = null; pintarUsuarios(); toast('Usuario guardado.', 'ok');
+  });
+};
+$('#btnCancelarUsuario').onclick = function () { formUsuario(null); };
+
+// =============================================================
+// Inicio
+// =============================================================
+$('#btnLogin').onclick = login;
+$('#lClave').addEventListener('keydown', function (e) { if (e.key === 'Enter') login(); });
+$('#lUsuario').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('#lClave').focus(); });
+$('#btnSalir').onclick = salir;
+$('#btnClave').onclick = cambiarClave;
+$('#btnAvisos').onclick = activarAvisos;
+$('#btnStats').onclick = cargarStats;
+$('#eArea').addEventListener('change', function () { if (statsCargadas) pintarStats(); });
+$('#eTexto').addEventListener('input', function () { if (statsCargadas) pintarStats(); });
+$$('[data-rango]').forEach(function (b) { b.onclick = function () { setRango(b.dataset.rango); cargarStats(); }; });
+
+(async function () {
+  if (API_URL.indexOf('PEGAR') === 0) {
+    document.body.innerHTML = '<main class="angosto"><div class="aviso error" style="margin-top:2rem">Falta configurar la URL de la API en <b>comun.js</b> (variable API_URL).</div></main>';
+    return;
+  }
+  var s = sesion.leer();
+  if (!s || !s.token) return mostrarLogin();
+  try { entrar(await api('yo')); }
+  catch (e) { sesion.borrar(); mostrarLogin(e.sesionVencida ? '' : e.message); }
+})();
+</script>
+</body>
+</html>
